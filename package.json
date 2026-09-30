@@ -1,0 +1,34 @@
+{
+  "name": "waypoint-delivery-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Waypoint Delivery Planning System - Team BJM Monorepo",
+  "workspaces": [
+    "packages/shared",
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm run dev:api & npm run dev:web",
+    "dev:web": "npm run dev --workspace=@waypoint/web",
+    "dev:api": "npm run dev --workspace=@waypoint/api",
+    "build:shared": "npm run build --workspace=@waypoint/shared",
+    "build": "npm run build --workspace=@waypoint/shared && npm run build --workspace=@waypoint/api && npm run build --workspace=@waypoint/web",
+    "test": "npm run test --workspace=@waypoint/api && npm run test --workspace=@waypoint/web",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,json,md,css}\"",
+    "typecheck": "npm run typecheck --workspace=@waypoint/shared && npm run typecheck --workspace=@waypoint/api && npm run typecheck --workspace=@waypoint/web",
+    "db:generate": "npm run db:generate --workspace=@waypoint/api",
+    "db:migrate": "npm run db:migrate --workspace=@waypoint/api",
+    "db:push": "npm run db:push --workspace=@waypoint/api",
+    "db:seed": "npm run db:seed --workspace=@waypoint/api"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.10.0",
+    "@typescript-eslint/parser": "^7.10.0",
+    "eslint": "^8.57.0",
+    "prettier": "^3.2.5",
+    "typescript": "^5.4.5"
+  }
+}

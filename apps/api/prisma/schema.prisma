@@ -1,0 +1,276 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum UserRole {
+  STORE_MANAGER
+  DISPATCHER
+  LOADER
+  DRIVER
+}
+
+enum OrderStatus {
+  DRAFT
+  CONFIRMED
+  PLANNED
+  DEFERRED
+  LOADING
+  IN_TRANSIT
+  DELIVERED
+  PARTIAL
+  FAILED
+}
+
+enum VehicleType {
+  TRUCK
+  VAN
+}
+
+enum VehicleTemperatureType {
+  REEFER
+  AMBIENT
+}
+
+enum TemperatureRequirement {
+  CHILLED
+  FROZEN
+  AMBIENT
+}
+
+enum TripStatus {
+  PLANNED
+  LOADING
+  READY_FOR_DISPATCH
+  IN_TRANSIT
+  COMPLETED
+  CANCELLED
+}
+
+enum LoadingStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  ISSUE_REPORTED
+  READY_FOR_DISPATCH
+}
+
+enum DeliveryOutcome {
+  FULL
+  PARTIAL
+  FAILED
+}
+
+enum SyncStatus {
+  SYNCED
+  PENDING
+  FAILED
+}
+
+model User {
+  id                   String                @id @default(uuid())
+  email                String                @unique
+  passwordHash         String
+  role                 UserRole
+  name                 String
+  phone                String?
+  depotId              String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  tripsAsDriver        Trip[]                @relation("TripDriver")
+  loadingRecords       LoadingRecord[]
+  deliveries           Delivery[]
+  receiptConfirmations ReceiptConfirmation[]
+}
+
+model Outlet {
+  id                  String   @id @default(uuid())
+  code                String   @unique
+  name                String
+  address             String
+  latitude            Float?
+  longitude           Float?
+  contactPerson       String?
+  contactPhone        String?
+  vanOnly             Boolean  @default(false)
+  openingTime         String?
+  closingTime         String?
+  deliveryWindowStart String?
+  deliveryWindowEnd   String?
+  depotId             String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  orders              Order[]
+}
+
+model Vehicle {
+  id                    String                 @id @default(uuid())
+  registrationNumber    String                 @unique
+  type                  VehicleType
+  tempType              VehicleTemperatureType
+  maxWeightKg           Float
+  maxVolumeM3           Float
+  weeklyFuelQuotaLiters Float
+  currentFuelUsedLiters Float                  @default(0)
+  depotId               String?
+  isActive              Boolean                @default(true)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+  trips                 Trip[]
+}
+
+model Order {
+  id                    String               @id @default(uuid())
+  orderNumber           String               @unique
+  outletId              String
+  outlet                Outlet               @relation(fields: [outletId], references: [id])
+  status                OrderStatus          @default(CONFIRMED)
+  requestedDeliveryDate DateTime
+  totalWeightKg         Float                @default(0)
+  totalVolumeM3         Float                @default(0)
+  deferralReason        String?
+  deferralCount         Int                  @default(0)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  items                 OrderItem[]
+  tripOrders            TripOrder[]
+  deliveries            Delivery[]
+  receiptConfirmation   ReceiptConfirmation?
+}
+
+model OrderItem {
+  id              String                 @id @default(uuid())
+  orderId         String
+  order           Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productName     String
+  quantity        Int
+  unitWeightKg    Float
+  unitVolumeM3    Float
+  tempRequirement TemperatureRequirement
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  loadingIssues   LoadingIssue[]
+}
+
+model Trip {
+  id                   String         @id @default(uuid())
+  tripNumber           String         @unique
+  vehicleId            String
+  vehicle              Vehicle        @relation(fields: [vehicleId], references: [id])
+  driverId             String?
+  driver               User?          @relation("TripDriver", fields: [driverId], references: [id])
+  tripDate             DateTime
+  tripSequenceNumber   Int            @default(1)
+  status               TripStatus     @default(PLANNED)
+  totalWeightKg        Float          @default(0)
+  totalVolumeM3        Float          @default(0)
+  plannedDepartureTime DateTime?
+  actualDepartureTime  DateTime?
+  completedTime        DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  tripOrders           TripOrder[]
+  loadingRecords       LoadingRecord[]
+  deliveries           Delivery[]
+}
+
+model TripOrder {
+  id             String   @id @default(uuid())
+  tripId         String
+  trip           Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  orderId        String
+  order          Order    @relation(fields: [orderId], references: [id])
+  sequenceNumber Int
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([tripId, orderId])
+}
+
+model LoadingRecord {
+  id            String         @id @default(uuid())
+  tripId        String
+  trip          Trip           @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  loaderId      String
+  loader        User           @relation(fields: [loaderId], references: [id])
+  status        LoadingStatus  @default(NOT_STARTED)
+  startedAt     DateTime?
+  completedAt   DateTime?
+  notes         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  loadingIssues LoadingIssue[]
+}
+
+model LoadingIssue {
+  id              String        @id @default(uuid())
+  loadingRecordId String
+  loadingRecord   LoadingRecord @relation(fields: [loadingRecordId], references: [id], onDelete: Cascade)
+  orderItemId     String?
+  orderItem       OrderItem?    @relation(fields: [orderItemId], references: [id])
+  issueType       String
+  description     String
+  reportedAt      DateTime      @default(now())
+  resolved        Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Delivery {
+  id               String            @id @default(uuid())
+  tripId           String
+  trip             Trip              @relation(fields: [tripId], references: [id])
+  orderId          String
+  order            Order             @relation(fields: [orderId], references: [id])
+  driverId         String
+  driver           User              @relation(fields: [driverId], references: [id])
+  outcome          DeliveryOutcome?
+  notes            String?
+  arrivedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  proofOfDelivery  ProofOfDelivery?
+}
+
+model ProofOfDelivery {
+  id                 String   @id @default(uuid())
+  deliveryId         String   @unique
+  delivery           Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  recipientName      String
+  recipientSignature String?
+  photoUrl           String?
+  notes              String?
+  capturedAt         DateTime @default(now())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model ReceiptConfirmation {
+  id                String   @id @default(uuid())
+  orderId           String   @unique
+  order             Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  confirmedByUserId String
+  confirmedBy       User     @relation(fields: [confirmedByUserId], references: [id])
+  status            String
+  notes             String?
+  confirmedAt       DateTime @default(now())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model SyncRecord {
+  id           String     @id @default(uuid())
+  entityType   String
+  entityId     String
+  clientSyncId String     @unique
+  payload      Json
+  status       SyncStatus @default(PENDING)
+  syncedAt     DateTime?
+  errorMessage String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
