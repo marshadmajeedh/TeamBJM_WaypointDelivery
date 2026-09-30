@@ -4,6 +4,8 @@ import {
   LoginResponseData,
   AuthenticatedUser,
   ApiResponseSuccess,
+  LoadingTasksResponseData,
+  VehicleLoadingDetails,
 } from '@waypoint/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
@@ -123,5 +125,21 @@ export async function loginApi(credentials: LoginRequest): Promise<LoginResponse
 
 export async function fetchMeApi(): Promise<AuthenticatedUser> {
   const response = await apiRequest<ApiResponseSuccess<AuthenticatedUser>>('/auth/me');
+  return response.data;
+}
+
+/**
+ * Loader Feature 1 (LS-02): Fetch loading tasks for current shift/depot.
+ */
+export async function fetchLoadingTasks(): Promise<LoadingTasksResponseData> {
+  const response = await apiRequest<ApiResponseSuccess<LoadingTasksResponseData>>('/loading/tasks');
+  return response.data;
+}
+
+/**
+ * Loader Feature 1 (LS-03): Fetch vehicle loading details for a specific trip.
+ */
+export async function fetchVehicleLoadingDetails(tripId: string): Promise<VehicleLoadingDetails> {
+  const response = await apiRequest<ApiResponseSuccess<VehicleLoadingDetails>>(`/loading/tasks/${encodeURIComponent(tripId)}`);
   return response.data;
 }

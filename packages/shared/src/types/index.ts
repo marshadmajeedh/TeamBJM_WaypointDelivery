@@ -18,6 +18,11 @@ import {
   AuthenticatedUserSchema,
   LoginResponseDataSchema,
   TokenPayloadSchema,
+  LoadingTaskSummarySchema,
+  LoadingTaskItemSchema,
+  LoadingTasksResponseDataSchema,
+  StopSequenceItemSchema,
+  VehicleLoadingDetailsSchema,
 } from '../schemas';
 
 export type UserRoleType = `${UserRole}`;
@@ -50,3 +55,10 @@ export interface AuthSession {
   user: AuthenticatedUser;
   token: string;
 }
+
+// Loader feature types (LS-02 & LS-03)
+export type LoadingTaskSummary = z.infer<typeof LoadingTaskSummarySchema>;
+export type LoadingTaskItem = z.infer<typeof LoadingTaskItemSchema>;
+export type LoadingTasksResponseData = z.infer<typeof LoadingTasksResponseDataSchema>;
+export type StopSequenceItem = z.infer<typeof StopSequenceItemSchema>;
+export type VehicleLoadingDetails = z.infer<typeof VehicleLoadingDetailsSchema>;

@@ -5,7 +5,7 @@ import { AppLayout } from '../layouts/AppLayout';
 import { OverviewPortal } from '../features/overview/OverviewPortal';
 import { StoreManagerPortal } from '../features/store-manager/StoreManagerPortal';
 import { DispatcherPortal } from '../features/dispatcher/DispatcherPortal';
-import { LoaderPortal } from '../features/loader/LoaderPortal';
+import { LoaderPortal, VehicleLoadingDetails } from '../features/loader/LoaderPortal';
 import { DriverPortal } from '../features/driver/DriverPortal';
 import { LoginPortal } from '../features/auth/LoginPortal';
 import { ProtectedRoute } from './ProtectedRoute';
@@ -40,6 +40,14 @@ export const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={[UserRole.LOADER]}>
               <LoaderPortal />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="loader/tasks/:tripId"
+          element={
+            <ProtectedRoute allowedRoles={[UserRole.LOADER]}>
+              <VehicleLoadingDetails />
             </ProtectedRoute>
           }
         />
