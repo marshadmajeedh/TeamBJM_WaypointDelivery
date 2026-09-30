@@ -3,6 +3,8 @@ import { LoaderDashboard } from './LoaderDashboard';
 
 export { LoaderDashboard } from './LoaderDashboard';
 export { VehicleLoadingDetails } from './VehicleLoadingDetails';
+export { LoadingSequence } from './LoadingSequence';
+export { LoadingChecklist } from './LoadingChecklist';
 
 export const LoaderPortal: React.FC = () => {
   return <LoaderDashboard />;

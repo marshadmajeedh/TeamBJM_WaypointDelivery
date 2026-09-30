@@ -459,11 +459,7 @@ export const VehicleLoadingDetails: React.FC = () => {
               <div className="bg-white border-t border-slate-200 p-4 space-y-2.5 fixed sm:absolute bottom-0 left-0 right-0 z-20 shadow-lg">
                 <button
                   id="view-sequence-plan-btn"
-                  onClick={() =>
-                    setActionNotice(
-                      'Loading Sequence & Marshalling Plan (LS-04) will be unlocked in next sprint.'
-                    )
-                  }
+                  onClick={() => navigate(`/loader/tasks/${tripId}/sequence`)}
                   className="w-full py-3.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center space-x-2 shadow-md active:scale-[0.99] transition"
                 >
                   <span>View Loading Sequence & Marshalling Plan</span>

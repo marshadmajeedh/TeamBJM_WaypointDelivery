@@ -6,6 +6,9 @@ import {
   ApiResponseSuccess,
   LoadingTasksResponseData,
   VehicleLoadingDetails,
+  LoadingSequenceResponse,
+  LoadingChecklistResponse,
+  UpdateLoadingItemResponse,
 } from '@waypoint/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
@@ -141,5 +144,43 @@ export async function fetchLoadingTasks(): Promise<LoadingTasksResponseData> {
  */
 export async function fetchVehicleLoadingDetails(tripId: string): Promise<VehicleLoadingDetails> {
   const response = await apiRequest<ApiResponseSuccess<VehicleLoadingDetails>>(`/loading/tasks/${encodeURIComponent(tripId)}`);
+  return response.data;
+}
+
+/**
+ * Loader Feature 2 (LS-04): Fetch reverse-stop vehicle loading sequence.
+ */
+export async function fetchLoadingSequence(tripId: string): Promise<LoadingSequenceResponse> {
+  const response = await apiRequest<ApiResponseSuccess<LoadingSequenceResponse>>(
+    `/loading/tasks/${encodeURIComponent(tripId)}/sequence`
+  );
+  return response.data;
+}
+
+/**
+ * Loader Feature 2 (LS-05): Fetch item loading checklist grouped by stops.
+ */
+export async function fetchLoadingChecklist(tripId: string): Promise<LoadingChecklistResponse> {
+  const response = await apiRequest<ApiResponseSuccess<LoadingChecklistResponse>>(
+    `/loading/tasks/${encodeURIComponent(tripId)}/checklist`
+  );
+  return response.data;
+}
+
+/**
+ * Loader Feature 2 (LS-05): Confirm/update item loaded quantity in database.
+ */
+export async function updateLoadingChecklistItem(
+  tripId: string,
+  itemId: string,
+  loadedQuantity: number
+): Promise<UpdateLoadingItemResponse> {
+  const response = await apiRequest<ApiResponseSuccess<UpdateLoadingItemResponse>>(
+    `/loading/tasks/${encodeURIComponent(tripId)}/items/${encodeURIComponent(itemId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ loadedQuantity }),
+    }
+  );
   return response.data;
 }

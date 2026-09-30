@@ -36,6 +36,15 @@ export {
   LoadingTasksResponseDataSchema,
   StopSequenceItemSchema,
   VehicleLoadingDetailsSchema,
+  LoadingSequenceItemSchema,
+  LoadingSequenceStopSchema,
+  LoadingSequenceResponseSchema,
+  LoadingChecklistItemSchema,
+  LoadingChecklistStopSchema,
+  LoadingChecklistOverallProgressSchema,
+  LoadingChecklistResponseSchema,
+  UpdateLoadingItemRequestSchema,
+  UpdateLoadingItemResponseSchema,
 } from './schemas';
 
 export * from './types';

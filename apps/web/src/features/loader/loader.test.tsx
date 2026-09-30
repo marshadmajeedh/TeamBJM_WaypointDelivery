@@ -14,7 +14,14 @@ import { AuthProvider } from '../auth/AuthContext';
 import { ProtectedRoute } from '../../routes/ProtectedRoute';
 import { LoaderDashboard } from './LoaderDashboard';
 import { VehicleLoadingDetails } from './VehicleLoadingDetails';
-import type { LoadingTasksResponseData, VehicleLoadingDetails as VehicleLoadingDetailsType } from '@waypoint/shared';
+import { LoadingSequence } from './LoadingSequence';
+import { LoadingChecklist } from './LoadingChecklist';
+import type {
+  LoadingTasksResponseData,
+  VehicleLoadingDetails as VehicleLoadingDetailsType,
+  LoadingSequenceResponse,
+  LoadingChecklistResponse,
+} from '@waypoint/shared';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -317,6 +324,22 @@ function renderLoaderApp(initialRoute: string) {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/loader/tasks/:tripId/sequence"
+              element={
+                <ProtectedRoute allowedRoles={[UserRole.LOADER]}>
+                  <LoadingSequence />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/loader/tasks/:tripId/checklist"
+              element={
+                <ProtectedRoute allowedRoles={[UserRole.LOADER]}>
+                  <LoadingChecklist />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/dispatcher" element={<div>Dispatcher Portal</div>} />
           </Routes>
         </AuthProvider>
@@ -498,6 +521,474 @@ describe('Loader Feature 1: Loading Tasks Dashboard & Vehicle Loading Details (L
     await waitFor(() => {
       expect(screen.getByText('Dispatcher Portal')).toBeDefined();
       expect(screen.queryByText("Today's Loading Tasks")).toBeNull();
+    });
+  });
+});
+
+const mockSequenceData: LoadingSequenceResponse = {
+  tripId: 'trip-001',
+  tripNumber: 'TRIP-01',
+  tripSequenceNumber: 1,
+  bay: 'BAY 04',
+  vehicle: {
+    id: 'veh-001',
+    registrationNumber: 'WP-CAD-8821',
+    type: VehicleType.TRUCK,
+    tempType: VehicleTemperatureType.REEFER,
+    modelName: 'Isuzu 4T Reefer',
+  },
+  plannedDepartureTime: '2026-09-29T05:45:00.000Z',
+  departureFormatted: 'Departs 05:45 AM',
+  loadingStatus: LoadingStatus.NOT_STARTED,
+  capacityPercentage: 84,
+  mandatoryRule: 'Load items for later stops FIRST so first-stop items remain easily accessible at the rear door / tail-lift.',
+  sequenceSummary: 'Sequence: Stop 3 (Deep Cabin) -> Stop 2 (Mid Cabin) -> Stop 1 (Tailgate)',
+  stops: [
+    {
+      stopSequence: 3,
+      lifoStagingOrder: 1,
+      lifoPositionLabel: 'Front Bulkhead',
+      priorityLabel: 'LOAD FIRST - REAR BULKHEAD',
+      stepLabel: 'STEP 1 • FIRST TO LOAD',
+      outlet: {
+        id: 'out-3',
+        code: '#109',
+        name: 'Waypoint Fresh – Kottawa',
+        address: 'Expressway Access Rd, Kottawa',
+        deliveryWindow: '07:00 – 08:30 AM',
+      },
+      orderId: 'ord-3',
+      orderNumber: 'ORD-1044',
+      skuCount: 3,
+      totalUnits: 9,
+      weightKg: 1120,
+      volumeM3: 6.6,
+      tempRequirements: [TemperatureRequirement.FROZEN],
+      cargoDescription: 'Frozen & Deep Chill',
+      designatedHold: {
+        zone: 'Zone 2 (Frozen Compartment Forward)',
+        temperature: '-18°C',
+      },
+      etaFormatted: '07:18 AM',
+      isImmediateDispatch: false,
+      items: [
+        {
+          id: 'seq-it-1',
+          sku: 'KLS-8809',
+          productName: 'Keells Frozen Chicken Breasts',
+          quantity: 12,
+          unitWeightKg: 10,
+          unitVolumeM3: 0.1,
+          tempRequirement: TemperatureRequirement.FROZEN,
+          packageType: '12 crates',
+          instructions: '-18°C Keells Security Seal Verified',
+        },
+      ],
+    },
+    {
+      stopSequence: 2,
+      lifoStagingOrder: 2,
+      lifoPositionLabel: 'Mid-Chamber',
+      priorityLabel: 'LOAD NEXT - MID CABIN',
+      stepLabel: 'STEP 2 • NEXT TO LOAD',
+      outlet: {
+        id: 'out-2',
+        code: '#106',
+        name: 'Waypoint Fresh – Maharagama',
+        address: 'Pamunuwa Junction, Maharagama',
+        deliveryWindow: '06:30 – 08:00 AM',
+      },
+      orderId: 'ord-2',
+      orderNumber: 'ORD-1043',
+      skuCount: 3,
+      totalUnits: 8,
+      weightKg: 820,
+      volumeM3: 5.1,
+      tempRequirements: [TemperatureRequirement.CHILLED],
+      cargoDescription: 'Chilled Dairy & Poultry',
+      designatedHold: {
+        zone: 'Zone 1 (Chilled Barrier 4°C)',
+        temperature: '+4°C',
+      },
+      etaFormatted: '06:48 AM',
+      isImmediateDispatch: false,
+      items: [],
+    },
+    {
+      stopSequence: 1,
+      lifoStagingOrder: 3,
+      lifoPositionLabel: 'Door Position',
+      priorityLabel: 'LOAD LAST - UNLOAD FIRST',
+      stepLabel: 'STEP 3 • LAST TO LOAD',
+      outlet: {
+        id: 'out-1',
+        code: '#104',
+        name: 'Waypoint Fresh – Nugegoda',
+        address: 'High Level Road, Nugegoda',
+        deliveryWindow: '06:00 – 08:00 AM',
+      },
+      orderId: 'ord-1',
+      orderNumber: 'ORD-1042',
+      skuCount: 3,
+      totalUnits: 10,
+      weightKg: 540,
+      volumeM3: 3.5,
+      tempRequirements: [TemperatureRequirement.CHILLED],
+      cargoDescription: 'Fresh Milk, Dairy & Produce',
+      designatedHold: {
+        zone: 'Tailgate / Roll-Up Shutter',
+        temperature: '+4°C',
+      },
+      etaFormatted: '06:20 AM [First Stop!]',
+      isImmediateDispatch: true,
+      items: [],
+    },
+  ],
+};
+
+const mockChecklistData: LoadingChecklistResponse = {
+  tripId: 'trip-001',
+  tripNumber: 'TRIP-01',
+  bay: 'Bay D-04',
+  vehicle: {
+    id: 'veh-001',
+    registrationNumber: 'WP-CAD-8821',
+    type: VehicleType.TRUCK,
+    tempType: VehicleTemperatureType.REEFER,
+    modelName: 'Isuzu 4T Reefer',
+  },
+  plannedDepartureTime: '2026-09-29T05:45:00.000Z',
+  departureFormatted: 'Departs 05:45 AM',
+  overallProgress: {
+    totalRequired: 27,
+    totalLoaded: 18,
+    percentage: 67,
+    verifiedStopsDone: 2,
+    totalStops: 3,
+    inProgressStops: 1,
+    shortageAlertCount: 1,
+  },
+  stops: [
+    {
+      stopSequence: 1,
+      lifoStagingOrder: 3,
+      lifoPositionLabel: 'FIRST UNLOAD',
+      outlet: {
+        id: 'out-1',
+        code: '#104',
+        name: 'Waypoint Fresh – Nugegoda',
+        address: 'High Level Road, Nugegoda',
+      },
+      orderId: 'ord-1',
+      orderNumber: 'ORD-1042',
+      totalItems: 9,
+      loadedItems: 2,
+      hasShortage: true,
+      isCompleted: false,
+      items: [
+        {
+          id: 'item-chk-1',
+          orderId: 'ord-1',
+          orderNumber: 'ORD-1042',
+          sku: 'HLD-0142',
+          productName: 'Highland Fresh Full Cream Milk',
+          specification: '1L × 12 Pack • 240 kg total',
+          tempRequirement: TemperatureRequirement.CHILLED,
+          tempLabel: 'Chilled 4°C',
+          requiredQuantity: 20,
+          stagedQuantity: 18,
+          loadedQuantity: 0,
+          hasShortage: true,
+          shortageQuantity: 2,
+          shortageDetails: 'Shortage detected: 2 cartons missing from pallet #P-104',
+          unit: 'cartons',
+          isLoaded: false,
+          status: 'SHORTAGE',
+          stopSequence: 1,
+          outletCode: '#104',
+          outletName: 'Waypoint Fresh – Nugegoda',
+        },
+      ],
+    },
+    {
+      stopSequence: 2,
+      lifoStagingOrder: 2,
+      lifoPositionLabel: 'LOAD NEXT',
+      outlet: {
+        id: 'out-2',
+        code: '#106',
+        name: 'Waypoint Fresh – Maharagama',
+        address: 'Pamunuwa Junction, Maharagama',
+      },
+      orderId: 'ord-2',
+      orderNumber: 'ORD-1043',
+      totalItems: 8,
+      loadedItems: 8,
+      hasShortage: false,
+      isCompleted: true,
+      items: [
+        {
+          id: 'item-chk-2',
+          orderId: 'ord-2',
+          orderNumber: 'ORD-1043',
+          sku: 'KLS-9941',
+          productName: 'Keells Frozen Ready-to-Cook',
+          specification: '6 cartons • Frozen standard',
+          tempRequirement: TemperatureRequirement.FROZEN,
+          tempLabel: 'Frozen (-18°C)',
+          requiredQuantity: 8,
+          stagedQuantity: 8,
+          loadedQuantity: 8,
+          hasShortage: false,
+          shortageQuantity: 0,
+          shortageDetails: null,
+          unit: 'cartons',
+          isLoaded: true,
+          status: 'LOADED',
+          stopSequence: 2,
+          outletCode: '#106',
+          outletName: 'Waypoint Fresh – Maharagama',
+        },
+      ],
+    },
+    {
+      stopSequence: 3,
+      lifoStagingOrder: 1,
+      lifoPositionLabel: 'NOSE LOAD',
+      outlet: {
+        id: 'out-3',
+        code: '#109',
+        name: 'Waypoint Fresh – Kottawa',
+        address: 'Expressway Access Rd, Kottawa',
+      },
+      orderId: 'ord-3',
+      orderNumber: 'ORD-1044',
+      totalItems: 10,
+      loadedItems: 10,
+      hasShortage: false,
+      isCompleted: true,
+      items: [
+        {
+          id: 'item-chk-3',
+          orderId: 'ord-3',
+          orderNumber: 'ORD-1044',
+          sku: 'NWE-3310',
+          productName: 'Nuwara Eliya Fresh Carrots',
+          specification: '10 boxes • Ambient standard',
+          tempRequirement: TemperatureRequirement.AMBIENT,
+          tempLabel: 'Ambient',
+          requiredQuantity: 10,
+          stagedQuantity: 10,
+          loadedQuantity: 10,
+          hasShortage: false,
+          shortageQuantity: 0,
+          shortageDetails: null,
+          unit: 'boxes',
+          isLoaded: true,
+          status: 'LOADED',
+          stopSequence: 3,
+          outletCode: '#109',
+          outletName: 'Waypoint Fresh – Kottawa',
+        },
+      ],
+    },
+  ],
+};
+
+describe('Loader Feature 2: Loading Sequence & Loading Checklist (LS-04 & LS-05)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    sessionStorage.clear();
+    sessionStorage.setItem('waypoint_token', 'valid-loader-token');
+    sessionStorage.setItem(
+      'waypoint_user',
+      JSON.stringify({
+        id: 'loader-1',
+        email: 'loader@waypoint.local',
+        role: UserRole.LOADER,
+        name: 'D. Jayasuriya',
+      })
+    );
+  });
+
+  // 1. Loading Sequence renders with cutaway projection and reverse-stop protocol
+  it('1. renders LS-04 Loading Sequence with trailer cutaway and reverse-stop protocol', async () => {
+    vi.spyOn(api, 'fetchLoadingSequence').mockResolvedValue(mockSequenceData);
+
+    renderLoaderApp('/loader/tasks/trip-001/sequence');
+
+    await waitFor(() => {
+      expect(screen.getByText('4. Loading Sequence')).toBeDefined();
+    });
+
+    expect(screen.getByText('Reverse-Order Truck Loading Guide')).toBeDefined();
+    expect(screen.getByText('TRAILER CUTAWAY PROJECTION')).toBeDefined();
+    expect(screen.getByText('Capacity 84% Filled')).toBeDefined();
+    expect(screen.getByText('REVERSE-STOP LOADING PROTOCOL')).toBeDefined();
+    expect(screen.getByText(/Team BJM Loading Strategy/i)).toBeDefined();
+    expect(screen.getByText(/Load items for later stops FIRST/i)).toBeDefined();
+  });
+
+  // 2. Stop priority labels render in reverse delivery order
+  it('2. renders stop priority labels with reverse LIFO loading queue', async () => {
+    vi.spyOn(api, 'fetchLoadingSequence').mockResolvedValue(mockSequenceData);
+
+    renderLoaderApp('/loader/tasks/trip-001/sequence');
+
+    await waitFor(() => {
+      expect(screen.getByText(/• LOAD FIRST - REAR BULKHEAD/i)).toBeDefined();
+    });
+
+    expect(screen.getByText('STEP 1 • FIRST TO LOAD')).toBeDefined();
+    expect(screen.getByText(/STOP 3: Waypoint Fresh – Kottawa/i)).toBeDefined();
+
+    expect(screen.getByText(/• LOAD NEXT - MID CABIN/i)).toBeDefined();
+    expect(screen.getByText('STEP 2 • NEXT TO LOAD')).toBeDefined();
+
+    expect(screen.getByText(/• LOAD LAST - UNLOAD FIRST/i)).toBeDefined();
+    expect(screen.getByText('STEP 3 • LAST TO LOAD')).toBeDefined();
+    expect(screen.getByText(/STOP 1: Waypoint Fresh – Nugegoda/i)).toBeDefined();
+  });
+
+  // 3. Start Item Checklist navigates correctly
+  it('3. navigates from Loading Sequence to Loading Checklist on primary button click', async () => {
+    vi.spyOn(api, 'fetchLoadingSequence').mockResolvedValue(mockSequenceData);
+    vi.spyOn(api, 'fetchLoadingChecklist').mockResolvedValue(mockChecklistData);
+
+    renderLoaderApp('/loader/tasks/trip-001/sequence');
+
+    await waitFor(() => {
+      expect(screen.getByText(/Start Item Checklist/i)).toBeDefined();
+    });
+
+    const startBtn = screen.getByText(/Start Item Checklist/i);
+    fireEvent.click(startBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('5. Item Loading Checklist')).toBeDefined();
+    });
+  });
+
+  // 4. Checklist renders grouped stops and items, with scanner in disabled standby
+  it('4. renders LS-05 Loading Checklist with grouped delivery stops and disabled scanner', async () => {
+    vi.spyOn(api, 'fetchLoadingChecklist').mockResolvedValue(mockChecklistData);
+
+    renderLoaderApp('/loader/tasks/trip-001/checklist');
+
+    await waitFor(() => {
+      expect(screen.getByText('5. Item Loading Checklist')).toBeDefined();
+    });
+
+    expect(screen.getByText(/STOP 1 • FIRST UNLOAD • Nugegoda/i)).toBeDefined();
+    expect(screen.getByText(/STOP 2 • LOAD NEXT • Maharagama/i)).toBeDefined();
+    expect(screen.getByText(/STOP 3 • NOSE LOAD • Kottawa/i)).toBeDefined();
+    expect(screen.getByText('Highland Fresh Full Cream Milk')).toBeDefined();
+
+    // Verify scanner is non-functional / disabled standby
+    const scannerBtn = screen.getByRole('button', { name: /scanner offline/i });
+    expect((scannerBtn as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('STANDBY')).toBeDefined();
+  });
+
+  // 5. Overall progress displays correctly
+  it('5. displays overall progress with items count and verified chips', async () => {
+    vi.spyOn(api, 'fetchLoadingChecklist').mockResolvedValue(mockChecklistData);
+
+    renderLoaderApp('/loader/tasks/trip-001/checklist');
+
+    await waitFor(() => {
+      expect(screen.getByText('18')).toBeDefined();
+    });
+
+    expect(screen.getByText('/ 27 Items Loaded')).toBeDefined();
+    expect(screen.getByText('⚡ 67%')).toBeDefined();
+    expect(screen.getByText('2 Stops')).toBeDefined();
+    expect(screen.getByText('Verified Done')).toBeDefined();
+    expect(screen.getByText('1 Issue')).toBeDefined();
+  });
+
+  // 6. Item confirmation updates UI
+  it('6. confirms item loading when clicking confirm button', async () => {
+    vi.spyOn(api, 'fetchLoadingChecklist').mockResolvedValue(mockChecklistData);
+    const updateSpy = vi.spyOn(api, 'updateLoadingChecklistItem').mockResolvedValue({
+      item: {
+        ...mockChecklistData.stops[0].items[0],
+        loadedQuantity: 18,
+        isLoaded: true,
+        status: 'LOADED',
+      },
+      overallProgress: {
+        totalRequired: 27,
+        totalLoaded: 27,
+        percentage: 100,
+        verifiedStopsDone: 3,
+        totalStops: 3,
+        inProgressStops: 0,
+        shortageAlertCount: 1,
+      },
+      loadingStatus: LoadingStatus.IN_PROGRESS,
+    });
+
+    renderLoaderApp('/loader/tasks/trip-001/checklist');
+
+    await waitFor(() => {
+      expect(screen.getByText('✓ Confirm 18 cartons')).toBeDefined();
+    });
+
+    const confirmBtn = screen.getByText('✓ Confirm 18 cartons');
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      expect(updateSpy).toHaveBeenCalledWith('trip-001', 'item-chk-1', 18);
+      expect(screen.getByText('Fully Staged & Loaded (18 cartons)')).toBeDefined();
+    });
+  });
+
+  // 7. Shortage warning displays
+  it('7. displays shortage warning box when required quantity exceeds staged quantity', async () => {
+    vi.spyOn(api, 'fetchLoadingChecklist').mockResolvedValue(mockChecklistData);
+
+    renderLoaderApp('/loader/tasks/trip-001/checklist');
+
+    await waitFor(() => {
+      expect(screen.getByText(/Shortage detected: 2 cartons missing/i)).toBeDefined();
+    });
+
+    expect(screen.getByText('REQUIREMENT')).toBeDefined();
+    expect(screen.getByText('20 cartons')).toBeDefined();
+    expect(screen.getByText('STAGED COUNT')).toBeDefined();
+    expect(screen.getByText('18 cartons')).toBeDefined();
+    expect(screen.getByText('⚠️ Report Shortage / Issue')).toBeDefined();
+  });
+
+  // 8. Error state displays
+  it('8. displays error state when loading checklist fails', async () => {
+    vi.spyOn(api, 'fetchLoadingChecklist').mockRejectedValue(new Error('Network connectivity lost'));
+
+    renderLoaderApp('/loader/tasks/trip-001/checklist');
+
+    await waitFor(() => {
+      expect(screen.getByText('Unable to Load Checklist')).toBeDefined();
+      expect(screen.getByText('Network connectivity lost')).toBeDefined();
+    });
+  });
+
+  // 9. Non-loader cannot access sequence or checklist routes
+  it('9. blocks non-loader role from accessing sequence and checklist routes', async () => {
+    sessionStorage.setItem(
+      'waypoint_user',
+      JSON.stringify({
+        id: 'dispatcher-1',
+        email: 'dispatcher@waypoint.local',
+        role: UserRole.DISPATCHER,
+      })
+    );
+
+    renderLoaderApp('/loader/tasks/trip-001/sequence');
+
+    await waitFor(() => {
+      expect(screen.getByText('Dispatcher Portal')).toBeDefined();
+      expect(screen.queryByText('4. Loading Sequence')).toBeNull();
     });
   });
 });

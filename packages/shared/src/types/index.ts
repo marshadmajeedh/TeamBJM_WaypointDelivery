@@ -23,6 +23,15 @@ import {
   LoadingTasksResponseDataSchema,
   StopSequenceItemSchema,
   VehicleLoadingDetailsSchema,
+  LoadingSequenceItemSchema,
+  LoadingSequenceStopSchema,
+  LoadingSequenceResponseSchema,
+  LoadingChecklistItemSchema,
+  LoadingChecklistStopSchema,
+  LoadingChecklistOverallProgressSchema,
+  LoadingChecklistResponseSchema,
+  UpdateLoadingItemRequestSchema,
+  UpdateLoadingItemResponseSchema,
 } from '../schemas';
 
 export type UserRoleType = `${UserRole}`;
@@ -62,3 +71,16 @@ export type LoadingTaskItem = z.infer<typeof LoadingTaskItemSchema>;
 export type LoadingTasksResponseData = z.infer<typeof LoadingTasksResponseDataSchema>;
 export type StopSequenceItem = z.infer<typeof StopSequenceItemSchema>;
 export type VehicleLoadingDetails = z.infer<typeof VehicleLoadingDetailsSchema>;
+
+// Loader Feature 2 types (LS-04 & LS-05)
+export type LoadingSequenceItem = z.infer<typeof LoadingSequenceItemSchema>;
+export type LoadingSequenceStop = z.infer<typeof LoadingSequenceStopSchema>;
+export type LoadingSequenceResponse = z.infer<typeof LoadingSequenceResponseSchema>;
+
+export type LoadingChecklistItem = z.infer<typeof LoadingChecklistItemSchema>;
+export type LoadingChecklistStop = z.infer<typeof LoadingChecklistStopSchema>;
+export type LoadingChecklistOverallProgress = z.infer<typeof LoadingChecklistOverallProgressSchema>;
+export type LoadingChecklistResponse = z.infer<typeof LoadingChecklistResponseSchema>;
+
+export type UpdateLoadingItemRequest = z.infer<typeof UpdateLoadingItemRequestSchema>;
+export type UpdateLoadingItemResponse = z.infer<typeof UpdateLoadingItemResponseSchema>;

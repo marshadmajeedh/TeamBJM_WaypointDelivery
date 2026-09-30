@@ -526,9 +526,34 @@ async function main() {
           preCoolTemp: '3.8°C',
           loadedItems: 0,
           modelName: 'Isuzu 4T Reefer',
+          items: {
+            'Highland Fresh Milk (1L x 12 pkg)': {
+              stagedQuantity: 8,
+              shortageDetails: 'Shortage detected: 2 cartons missing from pallet #P-104',
+            },
+          },
         }),
       },
     });
+  } else {
+    // Ensure synthetic development notes include staging metadata if not yet initialized
+    try {
+      const parsed = JSON.parse(existingRecord1.notes || '{}');
+      if (!parsed.items) {
+        parsed.items = {
+          'Highland Fresh Milk (1L x 12 pkg)': {
+            stagedQuantity: 8,
+            shortageDetails: 'Shortage detected: 2 cartons missing from pallet #P-104',
+          },
+        };
+        await prisma.loadingRecord.update({
+          where: { id: existingRecord1.id },
+          data: { notes: JSON.stringify(parsed) },
+        });
+      }
+    } catch {
+      // ignore
+    }
   }
 
   // TRIP 2: VEH021 (IN_PROGRESS)

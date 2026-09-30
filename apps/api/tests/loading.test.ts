@@ -384,4 +384,276 @@ describe('Loader Module API Endpoints (LS-02 & LS-03)', () => {
       expect(details.stops[2].outlet.name).toBe('Waypoint Fresh - Kottawa');
     });
   });
+
+  describe('Loader Feature 2: LS-04 Loading Sequence & LS-05 Loading Checklist', () => {
+    const testItemId = 'item-1';
+
+    it('1. rejects unauthenticated sequence request with 401', async () => {
+      const response = await request(app).get(`/api/loading/tasks/${mockTripId}/sequence`);
+      expect(response.status).toBe(401);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('UNAUTHORIZED');
+    });
+
+    it('2. rejects non-loader role from sequence endpoint with 403', async () => {
+      const response = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/sequence`)
+        .set('Authorization', `Bearer ${dispatcherToken}`);
+
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('3. rejects loader without depotId with 403 LOADER_DEPOT_NOT_ASSIGNED', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: null,
+      } as unknown as User);
+
+      const response = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/sequence`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('LOADER_DEPOT_NOT_ASSIGNED');
+      expect(response.body.error.message).toBe('Loader is not assigned to a depot.');
+    });
+
+    it('4. rejects cross-depot sequence request with 403 FORBIDDEN', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-kandy', // Different depot
+      } as unknown as User);
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const response = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/sequence`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('FORBIDDEN');
+      expect(response.body.error.message).toBe('Access forbidden: Trip belongs to another depot.');
+    });
+
+    it('5. returns 200 with reverse-stop loading sequence for valid loader (LS-04)', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const response = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/sequence`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+
+      const data = response.body.data;
+      expect(data.tripId).toBe(mockTripId);
+      expect(data.bay).toBe('BAY 04');
+      expect(data.mandatoryRule).toContain('Load items for later stops FIRST');
+      expect(data.stops).toHaveLength(3);
+
+      // Verify reverse-stop loading order: Stop 3 (Kottawa) is physically loaded first
+      expect(data.stops[0].stopSequence).toBe(3);
+      expect(data.stops[0].lifoStagingOrder).toBe(1);
+      expect(data.stops[0].priorityLabel).toBe('LOAD FIRST - REAR BULKHEAD');
+      expect(data.stops[0].stepLabel).toBe('STEP 1 • FIRST TO LOAD');
+      expect(data.stops[0].outlet.name).toBe('Waypoint Fresh - Kottawa');
+
+      // Stop 2 (Maharagama) is loaded next
+      expect(data.stops[1].stopSequence).toBe(2);
+      expect(data.stops[1].lifoStagingOrder).toBe(2);
+      expect(data.stops[1].priorityLabel).toBe('LOAD NEXT - MID CABIN');
+      expect(data.stops[1].stepLabel).toBe('STEP 2 • NEXT TO LOAD');
+
+      // Stop 1 (Nugegoda) is loaded last (first offload)
+      expect(data.stops[2].stopSequence).toBe(1);
+      expect(data.stops[2].lifoStagingOrder).toBe(3);
+      expect(data.stops[2].priorityLabel).toBe('LOAD LAST - UNLOAD FIRST');
+      expect(data.stops[2].stepLabel).toBe('STEP 3 • LAST TO LOAD');
+      expect(data.stops[2].isImmediateDispatch).toBe(true);
+    });
+
+    it('6. returns 200 with grouped stops checklist and progress for valid loader (LS-05)', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const response = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/checklist`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+
+      const data = response.body.data;
+      expect(data.tripId).toBe(mockTripId);
+      expect(data.overallProgress.totalRequired).toBe(27);
+      expect(data.stops).toHaveLength(3);
+
+      // Check first stop item
+      const stop1 = data.stops[0];
+      expect(stop1.outlet.name).toBe('Waypoint Fresh - Nugegoda');
+      expect(stop1.items.length).toBeGreaterThan(0);
+      expect(stop1.items[0].requiredQuantity).toBe(20);
+      expect(stop1.items[0].sku).toBeDefined();
+      expect(stop1.items[0].unit).toBeDefined();
+    });
+
+    it('7. rejects item update for item not belonging to trip with 404', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const response = await request(app)
+        .patch(`/api/loading/tasks/${mockTripId}/items/non-existent-item-uuid`)
+        .set('Authorization', `Bearer ${loaderToken}`)
+        .send({ loadedQuantity: 5 });
+
+      expect(response.status).toBe(404);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('NOT_FOUND');
+    });
+
+    it('8. rejects negative loaded quantity with 400 VALIDATION_ERROR', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      const response = await request(app)
+        .patch(`/api/loading/tasks/${mockTripId}/items/${testItemId}`)
+        .set('Authorization', `Bearer ${loaderToken}`)
+        .send({ loadedQuantity: -5 });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('9. rejects loaded quantity above permitted maximum with 400 EXCEEDS_PERMITTED_QUANTITY', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      // item-1 has required quantity 10
+      const response = await request(app)
+        .patch(`/api/loading/tasks/${mockTripId}/items/${testItemId}`)
+        .set('Authorization', `Bearer ${loaderToken}`)
+        .send({ loadedQuantity: 25 });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('EXCEEDS_PERMITTED_QUANTITY');
+      expect(response.body.error.message).toContain('cannot exceed permitted maximum');
+    });
+
+    it('10. persists valid quantity update into LoadingRecord and transitions status to IN_PROGRESS', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+      const updateSpy = vi.spyOn(prisma.loadingRecord, 'update').mockResolvedValue({} as unknown as Awaited<ReturnType<typeof prisma.loadingRecord.update>>);
+
+      const response = await request(app)
+        .patch(`/api/loading/tasks/${mockTripId}/items/${testItemId}`)
+        .set('Authorization', `Bearer ${loaderToken}`)
+        .send({ loadedQuantity: 10 });
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(updateSpy).toHaveBeenCalled();
+
+      // Check payload passed to update
+      const updateCallArgs = updateSpy.mock.calls[0][0];
+      expect(updateCallArgs.data.status).toBe(LoadingStatus.IN_PROGRESS);
+      const parsedNotes = JSON.parse(updateCallArgs.data.notes as string);
+      expect(parsedNotes.items[testItemId].loadedQuantity).toBe(10);
+    });
+
+    it('11. returns updated item and calculated progress correctly', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      // Create trip fixture where notes has 10 units loaded
+      const mockTripWithLoaded = {
+        ...mockTrip,
+        loadingRecords: [
+          {
+            ...mockTrip.loadingRecords[0],
+            status: LoadingStatus.IN_PROGRESS,
+            notes: JSON.stringify({
+              bay: 'BAY 04',
+              items: {
+                [testItemId]: { loadedQuantity: 10, stagedQuantity: 10 },
+              },
+            }),
+          },
+        ],
+      };
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTripWithLoaded as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+      vi.spyOn(prisma.loadingRecord, 'update').mockResolvedValue({} as unknown as Awaited<ReturnType<typeof prisma.loadingRecord.update>>);
+
+      const response = await request(app)
+        .patch(`/api/loading/tasks/${mockTripId}/items/${testItemId}`)
+        .set('Authorization', `Bearer ${loaderToken}`)
+        .send({ loadedQuantity: 10 });
+
+      expect(response.status).toBe(200);
+      expect(response.body.data.item.loadedQuantity).toBe(10);
+      expect(response.body.data.item.isLoaded).toBe(true);
+      expect(response.body.data.loadingStatus).toBe(LoadingStatus.IN_PROGRESS);
+      expect(response.body.data.overallProgress.totalLoaded).toBe(10);
+      expect(response.body.data.overallProgress.totalRequired).toBe(27);
+    });
+
+    it('12. ensures sequence and checklist responses do not expose sensitive driver or dispatcher secrets', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const seqRes = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/sequence`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+
+      const checkRes = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/checklist`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+
+      const rawSeq = JSON.stringify(seqRes.body);
+      const rawCheck = JSON.stringify(checkRes.body);
+
+      expect(rawSeq).not.toContain('password');
+      expect(rawSeq).not.toContain('hash');
+      expect(rawSeq).not.toContain('jwt');
+
+      expect(rawCheck).not.toContain('password');
+      expect(rawCheck).not.toContain('hash');
+      expect(rawCheck).not.toContain('jwt');
+    });
+  });
 });

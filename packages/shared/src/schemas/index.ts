@@ -218,3 +218,147 @@ export const VehicleLoadingDetailsSchema = z.object({
   }),
   stops: z.array(StopSequenceItemSchema),
 });
+
+// Loading Sequence Schemas (LS-04)
+export const LoadingSequenceItemSchema = z.object({
+  id: z.string(),
+  sku: z.string(),
+  productName: z.string(),
+  quantity: z.number(),
+  unitWeightKg: z.number(),
+  unitVolumeM3: z.number(),
+  tempRequirement: TemperatureRequirementSchema,
+  packageType: z.string(),
+  instructions: z.string().nullable().optional(),
+});
+
+export const LoadingSequenceStopSchema = z.object({
+  stopSequence: z.number(),
+  lifoStagingOrder: z.number(),
+  lifoPositionLabel: z.string(),
+  priorityLabel: z.string(),
+  stepLabel: z.string(),
+  outlet: z.object({
+    id: z.string(),
+    code: z.string(),
+    name: z.string(),
+    address: z.string(),
+    deliveryWindow: z.string(),
+  }),
+  orderId: z.string(),
+  orderNumber: z.string(),
+  skuCount: z.number(),
+  totalUnits: z.number(),
+  weightKg: z.number(),
+  volumeM3: z.number(),
+  tempRequirements: z.array(TemperatureRequirementSchema),
+  cargoDescription: z.string(),
+  designatedHold: z.object({
+    zone: z.string(),
+    temperature: z.string(),
+  }),
+  etaFormatted: z.string(),
+  isImmediateDispatch: z.boolean(),
+  items: z.array(LoadingSequenceItemSchema),
+});
+
+export const LoadingSequenceResponseSchema = z.object({
+  tripId: z.string(),
+  tripNumber: z.string(),
+  tripSequenceNumber: z.number(),
+  bay: z.string(),
+  vehicle: z.object({
+    id: z.string(),
+    registrationNumber: z.string(),
+    type: VehicleTypeSchema,
+    tempType: VehicleTemperatureTypeSchema,
+    modelName: z.string(),
+  }),
+  plannedDepartureTime: z.string().nullable(),
+  departureFormatted: z.string(),
+  loadingStatus: LoadingStatusSchema,
+  capacityPercentage: z.number(),
+  mandatoryRule: z.string(),
+  sequenceSummary: z.string(),
+  stops: z.array(LoadingSequenceStopSchema),
+});
+
+// Loading Checklist Schemas (LS-05)
+export const LoadingChecklistItemSchema = z.object({
+  id: z.string(),
+  orderId: z.string(),
+  orderNumber: z.string(),
+  sku: z.string(),
+  productName: z.string(),
+  specification: z.string(),
+  tempRequirement: TemperatureRequirementSchema,
+  tempLabel: z.string(),
+  requiredQuantity: z.number(),
+  stagedQuantity: z.number(),
+  loadedQuantity: z.number(),
+  hasShortage: z.boolean(),
+  shortageQuantity: z.number(),
+  shortageDetails: z.string().nullable().optional(),
+  unit: z.string(),
+  isLoaded: z.boolean(),
+  status: z.enum(['PENDING', 'LOADED', 'SHORTAGE', 'DISCREPANCY']),
+  stopSequence: z.number(),
+  outletCode: z.string(),
+  outletName: z.string(),
+});
+
+export const LoadingChecklistStopSchema = z.object({
+  stopSequence: z.number(),
+  lifoStagingOrder: z.number(),
+  lifoPositionLabel: z.string(),
+  outlet: z.object({
+    id: z.string(),
+    code: z.string(),
+    name: z.string(),
+    address: z.string(),
+  }),
+  orderId: z.string(),
+  orderNumber: z.string(),
+  totalItems: z.number(),
+  loadedItems: z.number(),
+  hasShortage: z.boolean(),
+  isCompleted: z.boolean(),
+  items: z.array(LoadingChecklistItemSchema),
+});
+
+export const LoadingChecklistOverallProgressSchema = z.object({
+  totalRequired: z.number(),
+  totalLoaded: z.number(),
+  percentage: z.number(),
+  verifiedStopsDone: z.number(),
+  totalStops: z.number(),
+  inProgressStops: z.number(),
+  shortageAlertCount: z.number(),
+});
+
+export const LoadingChecklistResponseSchema = z.object({
+  tripId: z.string(),
+  tripNumber: z.string(),
+  bay: z.string(),
+  vehicle: z.object({
+    id: z.string(),
+    registrationNumber: z.string(),
+    type: VehicleTypeSchema,
+    tempType: VehicleTemperatureTypeSchema,
+    modelName: z.string(),
+  }),
+  plannedDepartureTime: z.string().nullable(),
+  departureFormatted: z.string(),
+  overallProgress: LoadingChecklistOverallProgressSchema,
+  stops: z.array(LoadingChecklistStopSchema),
+});
+
+export const UpdateLoadingItemRequestSchema = z.object({
+  loadedQuantity: z.number().int().min(0),
+});
+
+export const UpdateLoadingItemResponseSchema = z.object({
+  item: LoadingChecklistItemSchema,
+  overallProgress: LoadingChecklistOverallProgressSchema,
+  loadingStatus: LoadingStatusSchema,
+});
