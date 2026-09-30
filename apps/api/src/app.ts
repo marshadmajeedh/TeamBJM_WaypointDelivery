@@ -14,6 +14,7 @@ import { loadingRouter } from './modules/loading/routes';
 import { deliveriesRouter } from './modules/deliveries/routes';
 import { receiptsRouter } from './modules/receipts/routes';
 import { syncRouter } from './modules/sync/routes';
+import { dispatcherRouter } from './modules/dispatcher/routes';
 
 export function createApp(): Express {
   const app = express();
@@ -42,6 +43,7 @@ export function createApp(): Express {
   app.use('/api/deliveries', deliveriesRouter);
   app.use('/api/receipts', receiptsRouter);
   app.use('/api/sync', syncRouter);
+  app.use('/api/dispatcher', dispatcherRouter);
 
   // Central error handling
   app.use(errorHandler);
