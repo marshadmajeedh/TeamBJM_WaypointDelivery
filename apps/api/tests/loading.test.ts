@@ -937,4 +937,415 @@ describe('Loader Module API Endpoints (LS-02 & LS-03)', () => {
       expect(raw).not.toContain('jwt');
     });
   });
+
+  describe('Loader Feature 4: Loading Review & Ready for Dispatch (LS-07)', () => {
+    const testItemId = 'item-1';
+
+    it('1. rejects unauthenticated access to review endpoint with 401', async () => {
+      const response = await request(app).get(`/api/loading/tasks/${mockTripId}/review`);
+      expect(response.status).toBe(401);
+      expect(response.body.success).toBe(false);
+    });
+
+    it('2. rejects non-loader role accessing review endpoint with 403', async () => {
+      const response = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/review`)
+        .set('Authorization', `Bearer ${dispatcherToken}`);
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
+    });
+
+    it('3. rejects loader without depot accessing review endpoint with 403 LOADER_DEPOT_NOT_ASSIGNED', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: null,
+      } as unknown as User);
+
+      const response = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/review`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe('LOADER_DEPOT_NOT_ASSIGNED');
+    });
+
+    it('4. rejects cross-depot trip review with 403 FORBIDDEN', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      const crossDepotTrip = {
+        ...mockTrip,
+        vehicle: {
+          ...mockTrip.vehicle,
+          depotId: 'depot-kandy',
+        },
+      };
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(crossDepotTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const response = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/review`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('5. returns full LS-07 loading review data for valid depot loader', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const response = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/review`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.tripId).toBe(mockTripId);
+      expect(response.body.data.vehicle.registrationNumber).toBe('WP-CAD-8821');
+      expect(response.body.data.driver.name).toBe('Sunimal Silva');
+      expect(response.body.data.bay).toBe('BAY 04');
+      expect(response.body.data.finalChecklist).toHaveLength(5);
+      expect(response.body.data.stops).toBeInstanceOf(Array);
+      expect(response.body.data.capacities.isWeightCompliant).toBe(true);
+      expect(response.body.data.temperatureProfile.isReefer).toBe(true);
+    });
+
+    it('6. blocks dispatch when checklist is incomplete and returns 409 LOADING_NOT_READY on ready attempt', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      // Incomplete trip (0 loaded items out of 20)
+      const incompleteTrip = {
+        ...mockTrip,
+        loadingRecords: [
+          {
+            id: 'rec-incomplete',
+            status: LoadingStatus.IN_PROGRESS,
+            loadingIssues: [],
+            notes: JSON.stringify({
+              bay: 'BAY 04',
+              items: {
+                [testItemId]: {
+                  requiredQuantity: 20,
+                  stagedQuantity: 20,
+                  loadedQuantity: 5,
+                },
+              },
+            }),
+          },
+        ],
+      };
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(incompleteTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      // GET review shows canDispatch === false
+      const reviewRes = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/review`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+      expect(reviewRes.status).toBe(200);
+      expect(reviewRes.body.data.canDispatch).toBe(false);
+      expect(reviewRes.body.data.checklistComplete).toBe(false);
+
+      // POST ready is rejected with 409 LOADING_NOT_READY
+      const readyRes = await request(app)
+        .post(`/api/loading/tasks/${mockTripId}/ready`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+      expect(readyRes.status).toBe(409);
+      expect(readyRes.body.error.code).toBe('LOADING_NOT_READY');
+    });
+
+    it('7. blocks dispatch when trip has unresolved issues and returns 409 UNRESOLVED_LOADING_ISSUES', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      const tripWithUnresolvedIssue = {
+        ...mockTrip,
+        loadingRecords: [
+          {
+            id: 'rec-issue',
+            status: LoadingStatus.ISSUE_REPORTED,
+            loadingIssues: [
+              {
+                id: 'issue-unresolved-1',
+                orderItemId: testItemId,
+                issueType: 'MISSING',
+                description: '2 cartons short from intake vault',
+                resolved: false,
+                reportedAt: new Date(),
+              },
+            ],
+            notes: JSON.stringify({
+              bay: 'BAY 04',
+              items: {
+                [testItemId]: {
+                  requiredQuantity: 20,
+                  stagedQuantity: 20,
+                  loadedQuantity: 20,
+                },
+              },
+            }),
+          },
+        ],
+      };
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(tripWithUnresolvedIssue as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      // Review reports unresolved issue count and blocks dispatch
+      const reviewRes = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/review`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+      expect(reviewRes.status).toBe(200);
+      expect(reviewRes.body.data.canDispatch).toBe(false);
+      expect(reviewRes.body.data.unresolvedIssueCount).toBe(1);
+      expect(reviewRes.body.data.unresolvedIssues[0].issueType).toBe('MISSING');
+
+      // Ready attempt fails closed with 409 UNRESOLVED_LOADING_ISSUES
+      const readyRes = await request(app)
+        .post(`/api/loading/tasks/${mockTripId}/ready`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+      expect(readyRes.status).toBe(409);
+      expect(readyRes.body.error.code).toBe('UNRESOLVED_LOADING_ISSUES');
+    });
+
+    it('8. allows dispatch when checklist is complete and no unresolved issues exist', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      const completeTrip = {
+        ...mockTrip,
+        loadingRecords: [
+          {
+            id: 'rec-complete',
+            status: LoadingStatus.IN_PROGRESS,
+            loadingIssues: [],
+            notes: JSON.stringify({
+              bay: 'BAY 04',
+              items: {
+                'item-1': {
+                  requiredQuantity: 20,
+                  stagedQuantity: 20,
+                  loadedQuantity: 20,
+                },
+                'item-2': {
+                  requiredQuantity: 4,
+                  stagedQuantity: 4,
+                  loadedQuantity: 4,
+                },
+                'item-3': {
+                  requiredQuantity: 3,
+                  stagedQuantity: 3,
+                  loadedQuantity: 3,
+                },
+              },
+            }),
+          },
+        ],
+      };
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(completeTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const reviewRes = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/review`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+      expect(reviewRes.status).toBe(200);
+      expect(reviewRes.body.data.canDispatch).toBe(true);
+      expect(reviewRes.body.data.checklistComplete).toBe(true);
+      expect(reviewRes.body.data.unresolvedIssueCount).toBe(0);
+    });
+
+    it('9. confirms ready for dispatch and updates Trip and LoadingRecord to READY_FOR_DISPATCH', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      const completeTrip = {
+        ...mockTrip,
+        loadingRecords: [
+          {
+            id: 'rec-complete',
+            status: LoadingStatus.IN_PROGRESS,
+            loadingIssues: [],
+            notes: JSON.stringify({
+              bay: 'BAY 04',
+              items: {
+                'item-1': {
+                  requiredQuantity: 20,
+                  stagedQuantity: 20,
+                  loadedQuantity: 20,
+                },
+                'item-2': {
+                  requiredQuantity: 4,
+                  stagedQuantity: 4,
+                  loadedQuantity: 4,
+                },
+                'item-3': {
+                  requiredQuantity: 3,
+                  stagedQuantity: 3,
+                  loadedQuantity: 3,
+                },
+              },
+            }),
+          },
+        ],
+      };
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(completeTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+      const loadingRecordUpdateSpy = vi.spyOn(prisma.loadingRecord, 'update').mockResolvedValue({
+        id: 'rec-complete',
+        status: LoadingStatus.READY_FOR_DISPATCH,
+      } as unknown as Awaited<ReturnType<typeof prisma.loadingRecord.update>>);
+      const tripUpdateSpy = vi.spyOn(prisma.trip, 'update').mockResolvedValue({
+        id: mockTripId,
+        status: TripStatus.READY_FOR_DISPATCH,
+      } as unknown as Awaited<ReturnType<typeof prisma.trip.update>>);
+
+      const readyRes = await request(app)
+        .post(`/api/loading/tasks/${mockTripId}/ready`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+
+      expect(readyRes.status).toBe(200);
+      expect(readyRes.body.success).toBe(true);
+      expect(readyRes.body.data.loadingStatus).toBe(LoadingStatus.READY_FOR_DISPATCH);
+      expect(readyRes.body.data.tripStatus).toBe(TripStatus.READY_FOR_DISPATCH);
+      expect(readyRes.body.data.completedAt).toBeDefined();
+
+      expect(loadingRecordUpdateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: LoadingStatus.READY_FOR_DISPATCH,
+          }),
+        })
+      );
+      expect(tripUpdateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            status: TripStatus.READY_FOR_DISPATCH,
+          }),
+        })
+      );
+    });
+
+    it('10. repeated ready confirmation is idempotent and returns completed state safely', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      const alreadyReadyTrip = {
+        ...mockTrip,
+        status: TripStatus.READY_FOR_DISPATCH,
+        loadingRecords: [
+          {
+            id: 'rec-already-ready',
+            status: LoadingStatus.READY_FOR_DISPATCH,
+            completedAt: new Date('2026-09-30T06:00:00Z'),
+            loadingIssues: [],
+          },
+        ],
+      };
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(alreadyReadyTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const readyRes = await request(app)
+        .post(`/api/loading/tasks/${mockTripId}/ready`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+
+      expect(readyRes.status).toBe(200);
+      expect(readyRes.body.success).toBe(true);
+      expect(readyRes.body.data.loadingStatus).toBe(LoadingStatus.READY_FOR_DISPATCH);
+    });
+
+    it('11. prevents checklist quantity modification on a completed trip with 409 LOADING_ALREADY_COMPLETED', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      const completedTrip = {
+        ...mockTrip,
+        status: TripStatus.READY_FOR_DISPATCH,
+        loadingRecords: [
+          {
+            id: 'rec-completed',
+            status: LoadingStatus.READY_FOR_DISPATCH,
+            loadingIssues: [],
+          },
+        ],
+      };
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(completedTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const patchRes = await request(app)
+        .patch(`/api/loading/tasks/${mockTripId}/items/${testItemId}`)
+        .set('Authorization', `Bearer ${loaderToken}`)
+        .send({ loadedQuantity: 19 });
+
+      expect(patchRes.status).toBe(409);
+      expect(patchRes.body.error.code).toBe('LOADING_ALREADY_COMPLETED');
+    });
+
+    it('12. prevents new issue creation on a completed trip with 409 LOADING_ALREADY_COMPLETED', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      const completedTrip = {
+        ...mockTrip,
+        status: TripStatus.READY_FOR_DISPATCH,
+        loadingRecords: [
+          {
+            id: 'rec-completed',
+            status: LoadingStatus.READY_FOR_DISPATCH,
+            loadingIssues: [],
+          },
+        ],
+      };
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(completedTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const issueRes = await request(app)
+        .post(`/api/loading/tasks/${mockTripId}/issues`)
+        .set('Authorization', `Bearer ${loaderToken}`)
+        .send({
+          itemId: testItemId,
+          type: 'MISSING',
+          quantity: 1,
+          description: 'Late shortage report after dispatch confirmation.',
+        });
+
+      expect(issueRes.status).toBe(409);
+      expect(issueRes.body.error.code).toBe('LOADING_ALREADY_COMPLETED');
+    });
+
+    it('13. ensures review response does not expose passwords, hashes, or secret tokens', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const reviewRes = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/review`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+
+      const raw = JSON.stringify(reviewRes.body);
+      expect(raw).not.toContain('password');
+      expect(raw).not.toContain('passwordHash');
+      expect(raw).not.toContain('jwt');
+    });
+  });
 });

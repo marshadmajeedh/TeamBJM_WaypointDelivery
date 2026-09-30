@@ -12,6 +12,8 @@ import {
   LoadingIssueResponse,
   LoadingIssueContextResponse,
   CreateLoadingIssueRequest,
+  LoadingReviewResponse,
+  ConfirmReadyForDispatchResponse,
 } from '@waypoint/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
@@ -215,6 +217,31 @@ export async function createLoadingIssue(
     {
       method: 'POST',
       body: JSON.stringify(req),
+    }
+  );
+  return response.data;
+}
+
+/**
+ * Loader Feature 4 (LS-07): Fetch loading review and gate clearance data.
+ */
+export async function fetchLoadingReview(tripId: string): Promise<LoadingReviewResponse> {
+  const response = await apiRequest<ApiResponseSuccess<LoadingReviewResponse>>(
+    `/loading/tasks/${encodeURIComponent(tripId)}/review`
+  );
+  return response.data;
+}
+
+/**
+ * Loader Feature 4 (LS-07): Confirm vehicle loading complete and ready for dispatch.
+ */
+export async function confirmReadyForDispatch(
+  tripId: string
+): Promise<ConfirmReadyForDispatchResponse> {
+  const response = await apiRequest<ApiResponseSuccess<ConfirmReadyForDispatchResponse>>(
+    `/loading/tasks/${encodeURIComponent(tripId)}/ready`,
+    {
+      method: 'POST',
     }
   );
   return response.data;

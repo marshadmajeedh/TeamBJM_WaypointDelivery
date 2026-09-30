@@ -14,7 +14,7 @@ import {
   Thermometer,
 } from 'lucide-react';
 import { fetchVehicleLoadingDetails } from '../../services/api';
-import type { VehicleLoadingDetails as VehicleLoadingDetailsType } from '@waypoint/shared';
+import { LoadingStatus, type VehicleLoadingDetails as VehicleLoadingDetailsType } from '@waypoint/shared';
 
 export const VehicleLoadingDetails: React.FC = () => {
   const { tripId } = useParams<{ tripId: string }>();
@@ -457,14 +457,25 @@ export const VehicleLoadingDetails: React.FC = () => {
 
               {/* Bottom Sticky Action Buttons */}
               <div className="bg-white border-t border-slate-200 p-4 space-y-2.5 fixed sm:absolute bottom-0 left-0 right-0 z-20 shadow-lg">
-                <button
-                  id="view-sequence-plan-btn"
-                  onClick={() => navigate(`/loader/tasks/${tripId}/sequence`)}
-                  className="w-full py-3.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center space-x-2 shadow-md active:scale-[0.99] transition"
-                >
-                  <span>View Loading Sequence & Marshalling Plan</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                {details.loadingStatus?.status === LoadingStatus.READY_FOR_DISPATCH ? (
+                  <button
+                    id="view-review-ready-btn"
+                    onClick={() => navigate(`/loader/tasks/${tripId}/review`)}
+                    className="w-full py-3.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center space-x-2 shadow-md active:scale-[0.99] transition"
+                  >
+                    <span>✓ Ready for Dispatch • View Gate Clearance</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button
+                    id="view-sequence-plan-btn"
+                    onClick={() => navigate(`/loader/tasks/${tripId}/sequence`)}
+                    className="w-full py-3.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs sm:text-sm flex items-center justify-center space-x-2 shadow-md active:scale-[0.99] transition"
+                  >
+                    <span>View Loading Sequence & Marshalling Plan</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                )}
                 <button
                   id="inspect-sensors-btn"
                   onClick={() =>

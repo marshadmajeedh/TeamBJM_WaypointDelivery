@@ -15,6 +15,8 @@ import {
   updateLoadingItemForDepot,
   getLoadingIssueContextForDepot,
   createLoadingIssueForDepot,
+  getLoadingReviewForDepot,
+  confirmReadyForDispatchForDepot,
 } from './loadingService';
 
 export const loadingRouter = Router();
@@ -318,6 +320,15 @@ loadingRouter.patch(
         );
       }
 
+      if (result.outcome === 'LOADING_ALREADY_COMPLETED') {
+        return sendError(
+          res,
+          'LOADING_ALREADY_COMPLETED',
+          result.message,
+          409
+        );
+      }
+
       if (result.outcome === 'EXCEEDS_PERMITTED_QUANTITY') {
         return sendError(
           res,
@@ -437,6 +448,15 @@ loadingRouter.post(
         return sendError(res, 'FORBIDDEN', 'Access to cross-depot trip is forbidden', 403);
       }
 
+      if (result.outcome === 'LOADING_ALREADY_COMPLETED') {
+        return sendError(
+          res,
+          'LOADING_ALREADY_COMPLETED',
+          result.message,
+          409
+        );
+      }
+
       if (result.outcome === 'ITEM_NOT_FOUND_IN_TRIP') {
         return sendError(
           res,
@@ -456,6 +476,117 @@ loadingRouter.post(
       }
 
       return sendSuccess(res, result.data, 201);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/loading/tasks/:tripId/review
+ * Returns server-calculated readiness review data for LS-07.
+ */
+loadingRouter.get(
+  '/tasks/:tripId/review',
+  authenticate,
+  authorizeRoles(UserRole.LOADER),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const loaderId = req.user?.id;
+      if (!loaderId) {
+        return sendError(res, 'UNAUTHORIZED', 'Loader authentication required', 401);
+      }
+
+      const depotId = await getAuthenticatedLoaderDepot(loaderId);
+      if (!depotId) {
+        return sendError(
+          res,
+          'LOADER_DEPOT_NOT_ASSIGNED',
+          'Loader is not assigned to a valid depot',
+          403
+        );
+      }
+
+      const { tripId } = req.params;
+      const result = await getLoadingReviewForDepot(depotId, tripId);
+
+      if (result.outcome === 'NOT_FOUND') {
+        return sendError(res, 'NOT_FOUND', `Trip '${tripId}' not found`, 404);
+      }
+
+      if (result.outcome === 'CROSS_DEPOT_FORBIDDEN') {
+        return sendError(res, 'FORBIDDEN', 'Access to cross-depot trip is forbidden', 403);
+      }
+
+      return sendSuccess(res, result.data);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/loading/tasks/:tripId/ready
+ * Confirms vehicle loading completion and transitions to READY_FOR_DISPATCH (LS-07).
+ * Re-validates that checklist is complete and no unresolved loading issues exist.
+ * Idempotent: repeated calls safely return completed state.
+ */
+loadingRouter.post(
+  '/tasks/:tripId/ready',
+  authenticate,
+  authorizeRoles(UserRole.LOADER),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const loaderId = req.user?.id;
+      if (!loaderId) {
+        return sendError(res, 'UNAUTHORIZED', 'Loader authentication required', 401);
+      }
+
+      const depotId = await getAuthenticatedLoaderDepot(loaderId);
+      if (!depotId) {
+        return sendError(
+          res,
+          'LOADER_DEPOT_NOT_ASSIGNED',
+          'Loader is not assigned to a valid depot',
+          403
+        );
+      }
+
+      const { tripId } = req.params;
+      const result = await confirmReadyForDispatchForDepot(depotId, loaderId, tripId);
+
+      if (result.outcome === 'NOT_FOUND') {
+        return sendError(res, 'NOT_FOUND', `Trip '${tripId}' not found`, 404);
+      }
+
+      if (result.outcome === 'CROSS_DEPOT_FORBIDDEN') {
+        return sendError(res, 'FORBIDDEN', 'Access to cross-depot trip is forbidden', 403);
+      }
+
+      if (result.outcome === 'TRIP_CANCELLED') {
+        return sendError(res, 'TRIP_CANCELLED', 'Cannot mark a cancelled trip ready for dispatch', 400);
+      }
+
+      if (result.outcome === 'UNRESOLVED_LOADING_ISSUES') {
+        return sendError(
+          res,
+          'UNRESOLVED_LOADING_ISSUES',
+          result.message,
+          409,
+          { unresolvedIssueCount: result.count }
+        );
+      }
+
+      if (result.outcome === 'LOADING_NOT_READY') {
+        return sendError(
+          res,
+          'LOADING_NOT_READY',
+          result.message,
+          409
+        );
+      }
+
+      return sendSuccess(res, result.data);
     } catch (error) {
       return next(error);
     }

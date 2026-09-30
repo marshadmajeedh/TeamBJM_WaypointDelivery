@@ -351,6 +351,7 @@ export const LoadingChecklistResponseSchema = z.object({
   departureFormatted: z.string(),
   overallProgress: LoadingChecklistOverallProgressSchema,
   stops: z.array(LoadingChecklistStopSchema),
+  loadingStatus: LoadingStatusSchema.optional(),
 });
 
 export const UpdateLoadingItemRequestSchema = z.object({
@@ -435,4 +436,104 @@ export const LoadingIssueContextResponseSchema = z.object({
       outletName: z.string(),
     })
   ),
+});
+
+// Loading Review & Ready for Dispatch Schemas (LS-07)
+export const LoadingReviewStopSchema = z.object({
+  stopSequence: z.number(),
+  outletName: z.string(),
+  outletCode: z.string(),
+  chamberZone: z.string(),
+  orderNumber: z.string(),
+  requiredItems: z.number(),
+  loadedItems: z.number(),
+  hasDiscrepancy: z.boolean(),
+  isLoaded: z.boolean(),
+  statusBadge: z.string(),
+});
+
+export const LoadingReviewUnresolvedIssueSchema = z.object({
+  id: z.string(),
+  orderItemId: z.string().nullable(),
+  productName: z.string(),
+  orderNumber: z.string(),
+  issueType: z.string(),
+  description: z.string(),
+  reportedAt: z.string(),
+});
+
+export const FinalLoadingChecklistItemSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  verified: z.boolean(),
+  badge: z.string().optional(),
+});
+export const GateChecklistItemSchema = FinalLoadingChecklistItemSchema;
+
+export const LoadingReviewResponseSchema = z.object({
+  tripId: z.string(),
+  tripNumber: z.string(),
+  tripSequenceNumber: z.number(),
+  vehicle: z.object({
+    id: z.string(),
+    registrationNumber: z.string(),
+    modelName: z.string(),
+    type: VehicleTypeSchema,
+    tempType: VehicleTemperatureTypeSchema,
+    maxWeightKg: z.number(),
+    maxVolumeM3: z.number(),
+  }),
+  driver: z.object({
+    id: z.string(),
+    name: z.string(),
+    phone: z.string().nullable(),
+  }).nullable(),
+  bay: z.string(),
+  plannedDepartureTime: z.string().nullable(),
+  departureFormatted: z.string(),
+  departureCountdown: z.string(),
+  progress: z.object({
+    totalItems: z.number(),
+    loadedItems: z.number(),
+    percentage: z.number(),
+    isComplete: z.boolean(),
+  }),
+  capacities: z.object({
+    usedWeightKg: z.number(),
+    maxWeightKg: z.number(),
+    weightMarginKg: z.number(),
+    weightPercentage: z.number(),
+    isWeightCompliant: z.boolean(),
+    usedVolumeM3: z.number(),
+    maxVolumeM3: z.number(),
+    freeVolumeM3: z.number(),
+    volumePercentage: z.number(),
+    isVolumeCompliant: z.boolean(),
+  }),
+  temperatureProfile: z.object({
+    isReefer: z.boolean(),
+    chamber1Temp: z.string(),
+    chamber2Temp: z.string().optional(),
+    statusLabel: z.string(),
+
+  }),
+  stops: z.array(LoadingReviewStopSchema),
+  unresolvedIssueCount: z.number(),
+  unresolvedIssues: z.array(LoadingReviewUnresolvedIssueSchema),
+  finalChecklist: z.array(FinalLoadingChecklistItemSchema),
+
+  checklistComplete: z.boolean(),
+  canDispatch: z.boolean(),
+  loadingStatus: LoadingStatusSchema,
+  tripStatus: TripStatusSchema,
+});
+
+export const ConfirmReadyForDispatchResponseSchema = z.object({
+  tripId: z.string(),
+  loadingStatus: LoadingStatusSchema,
+  tripStatus: TripStatusSchema,
+  completedAt: z.string(),
+
+
 });

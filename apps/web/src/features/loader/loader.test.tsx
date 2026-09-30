@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   UserRole,
   LoadingStatus,
+  TripStatus,
   VehicleType,
   VehicleTemperatureType,
   TemperatureRequirement,
@@ -17,6 +18,7 @@ import { VehicleLoadingDetails } from './VehicleLoadingDetails';
 import { LoadingSequence } from './LoadingSequence';
 import { LoadingChecklist } from './LoadingChecklist';
 import { LoadingIssueReport } from './LoadingIssueReport';
+import { LoadingReviewDispatch } from './LoadingReviewDispatch';
 import type {
   LoadingTasksResponseData,
   VehicleLoadingDetails as VehicleLoadingDetailsType,
@@ -24,6 +26,7 @@ import type {
   LoadingChecklistResponse,
   LoadingIssueContextResponse,
   LoadingIssueResponse,
+  LoadingReviewResponse,
 } from '@waypoint/shared';
 
 const queryClient = new QueryClient({
@@ -348,6 +351,14 @@ function renderLoaderApp(initialRoute: string) {
               element={
                 <ProtectedRoute allowedRoles={[UserRole.LOADER]}>
                   <LoadingIssueReport />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/loader/tasks/:tripId/review"
+              element={
+                <ProtectedRoute allowedRoles={[UserRole.LOADER]}>
+                  <LoadingReviewDispatch />
                 </ProtectedRoute>
               }
             />
@@ -1284,6 +1295,335 @@ describe('Loader Feature 3: LS-06 Report Loading Issue', () => {
     await waitFor(() => {
       expect(screen.getByText('Dispatcher Portal')).toBeDefined();
       expect(screen.queryByText('6. Report Loading Issue')).toBeNull();
+    });
+  });
+});
+
+const mockReviewData: LoadingReviewResponse = {
+  tripId: 'trip-001',
+  tripNumber: 'TRIP-01',
+  tripSequenceNumber: 1,
+  vehicle: {
+    id: 'veh-001',
+    registrationNumber: 'WP-CAD-8821',
+    modelName: 'Isuzu 4T Reefer',
+    type: VehicleType.TRUCK,
+    tempType: VehicleTemperatureType.REEFER,
+    maxWeightKg: 4000,
+    maxVolumeM3: 16.5,
+  },
+  driver: {
+    id: 'driver-001',
+    name: 'K. Bandara',
+    phone: '+94 77 123 4567',
+  },
+  bay: 'BAY 04',
+  plannedDepartureTime: '2026-09-29T05:45:00.000Z',
+  departureFormatted: 'Departs 05:45 AM',
+  departureCountdown: 'In 42 mins',
+  progress: {
+    totalItems: 27,
+    loadedItems: 27,
+    percentage: 100,
+    isComplete: true,
+  },
+  capacities: {
+    usedWeightKg: 3840,
+    maxWeightKg: 4000,
+    weightMarginKg: 160,
+    weightPercentage: 96,
+    isWeightCompliant: true,
+    usedVolumeM3: 14.8,
+    maxVolumeM3: 16.5,
+    freeVolumeM3: 1.7,
+    volumePercentage: 89.7,
+    isVolumeCompliant: true,
+  },
+  temperatureProfile: {
+    isReefer: true,
+    chamber1Temp: '-19.2°C',
+    chamber2Temp: '4.1°C',
+    statusLabel: 'Chamber 1 Frozen Active (-18°C Target)',
+  },
+  stops: [
+    {
+      stopSequence: 1,
+      outletName: 'Keells Super - Maharagama',
+      outletCode: 'OUT-001',
+      chamberZone: 'Zone A (Rear) • Unload Sequence 1',
+      orderNumber: 'ORD-001',
+      requiredItems: 15,
+      loadedItems: 15,
+      hasDiscrepancy: false,
+      isLoaded: true,
+      statusBadge: 'Verified',
+    },
+    {
+      stopSequence: 2,
+      outletName: 'Cargills Food City - Kottawa',
+      outletCode: 'OUT-002',
+      chamberZone: 'Zone B (Forward) • Unload Sequence 2',
+      orderNumber: 'ORD-002',
+      requiredItems: 12,
+      loadedItems: 12,
+      hasDiscrepancy: false,
+      isLoaded: true,
+      statusBadge: 'Verified',
+    },
+  ],
+  unresolvedIssueCount: 0,
+  unresolvedIssues: [],
+  finalChecklist: [
+    {
+      id: 'step-1',
+      title: 'Reverse-stop loading sequence verified',
+      description: 'Cargo arranged in inverse delivery stop order.',
+      verified: true,
+    },
+    {
+      id: 'step-2',
+      title: 'Driver and vehicle match trip manifest',
+      description: 'Assigned vehicle and driver credentials verified.',
+      verified: true,
+    },
+    {
+      id: 'step-3',
+      title: 'Temperature requirements validated',
+      description: 'Vehicle temperature specs match cargo profiles.',
+      verified: true,
+    },
+    {
+      id: 'step-4',
+      title: 'Cargo restraint bars secured',
+      description: 'All load partitions and tie-downs firmly locked in position.',
+      verified: true,
+    },
+    {
+      id: 'step-5',
+      title: 'Manifest total units match physical count',
+      description: 'Total item counts match delivery orders.',
+      verified: true,
+    },
+  ],
+  checklistComplete: true,
+  canDispatch: true,
+  loadingStatus: LoadingStatus.IN_PROGRESS,
+  tripStatus: TripStatus.PLANNED,
+};
+
+describe('Loader Feature 4: LS-07 Loading Review & Ready for Dispatch', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    sessionStorage.clear();
+    sessionStorage.setItem('waypoint_token', 'valid-loader-token');
+    sessionStorage.setItem(
+      'waypoint_user',
+      JSON.stringify({
+        id: 'loader-1',
+        email: 'loader@waypoint.local',
+        role: UserRole.LOADER,
+        name: 'D. Jayasuriya',
+      })
+    );
+  });
+
+  // 1. LS-07 renders review
+  it('1. LS-07 renders review with vehicle, driver, bay, and temperature specs', async () => {
+    vi.spyOn(api, 'fetchLoadingReview').mockResolvedValue(mockReviewData);
+
+    renderLoaderApp('/loader/tasks/trip-001/review');
+
+    await waitFor(() => {
+      expect(screen.getByText('7. Loading Review & Dispatch Ready')).toBeDefined();
+    });
+
+    expect(screen.getByText('Loading Review & Dispatch Readiness')).toBeDefined();
+    expect(screen.getByText(/WP-CAD-8821 • Isuzu 4T Reefer/i)).toBeDefined();
+    expect(screen.getByText(/Driver: K. Bandara/i)).toBeDefined();
+    expect(screen.getAllByText(/BAY 04/i)[0]).toBeDefined();
+    expect(screen.getByText('-19.2°C')).toBeDefined();
+    expect(screen.getByText('Cubing Vol.')).toBeDefined();
+    expect(screen.getByText('Reverse-stop loading sequence verified')).toBeDefined();
+  });
+
+  // 2. Progress displays
+  it('2. progress displays cargo manifest fill and payload utilization', async () => {
+    vi.spyOn(api, 'fetchLoadingReview').mockResolvedValue(mockReviewData);
+
+    renderLoaderApp('/loader/tasks/trip-001/review');
+
+    await waitFor(() => {
+      expect(screen.getByText(/27 \/ 27 Items Loaded/i)).toBeDefined();
+    });
+
+    expect(screen.getByText(/(100%)/i)).toBeDefined();
+    expect(screen.getByText(/3,840/i)).toBeDefined();
+    expect(screen.getByText(/Limit: 4,000 kg/i)).toBeDefined();
+  });
+
+  // 3. Unresolved issue blocked state displays
+  it('3. unresolved issue blocked state displays when discrepancy exists', async () => {
+    vi.spyOn(api, 'fetchLoadingReview').mockResolvedValue({
+      ...mockReviewData,
+      unresolvedIssueCount: 1,
+      canDispatch: false,
+      unresolvedIssues: [
+        {
+          id: 'issue-001',
+          orderItemId: 'item-001',
+          productName: 'Highland Fresh Full Cream Milk',
+          orderNumber: 'ORD-1042',
+          issueType: 'DAMAGED',
+          description: 'Crushed cartons on pallet loading',
+          reportedAt: '2026-09-30T10:00:00.000Z',
+        },
+      ],
+    });
+
+    renderLoaderApp('/loader/tasks/trip-001/review');
+
+    await waitFor(() => {
+      expect(screen.getAllByText('DISPATCH BLOCKED')[0]).toBeDefined();
+    });
+
+    expect(
+      screen.getByText(/1 unresolved loading discrepancy requires review before dispatch/i)
+    ).toBeDefined();
+    expect(screen.getByText(/Crushed cartons on pallet loading/i)).toBeDefined();
+    expect(
+      screen.getByText(/Dispatch Blocked: Unresolved loading discrepancy requires review before dispatch/i)
+    ).toBeDefined();
+    expect(screen.queryByRole('button', { name: /Confirm Ready for Dispatch/i })).toBeNull();
+  });
+
+  // 4. Incomplete loading blocked state displays
+  it('4. incomplete loading blocked state displays when items remain to load', async () => {
+    vi.spyOn(api, 'fetchLoadingReview').mockResolvedValue({
+      ...mockReviewData,
+      checklistComplete: false,
+      canDispatch: false,
+      progress: {
+        totalItems: 27,
+        loadedItems: 18,
+        percentage: 67,
+        isComplete: false,
+      },
+    });
+
+    renderLoaderApp('/loader/tasks/trip-001/review');
+
+    await waitFor(() => {
+      expect(screen.getAllByText('LOADING INCOMPLETE')[0]).toBeDefined();
+    });
+
+    expect(
+      screen.getByText(/Dispatch Blocked: Complete loading all 27 items before vehicle can be marked ready for dispatch/i)
+    ).toBeDefined();
+    expect(screen.queryByRole('button', { name: /Confirm Ready for Dispatch/i })).toBeNull();
+  });
+
+  // 5. Ready state renders
+  it('5. ready state renders with enabled Confirm Ready button when checklist complete and no issues', async () => {
+    vi.spyOn(api, 'fetchLoadingReview').mockResolvedValue(mockReviewData);
+
+    renderLoaderApp('/loader/tasks/trip-001/review');
+
+    await waitFor(() => {
+      expect(screen.getByText('ALL CARGO VERIFIED')).toBeDefined();
+    });
+
+    const confirmBtn = screen.getByRole('button', { name: /Confirm Ready for Dispatch/i });
+    expect(confirmBtn).toBeDefined();
+  });
+
+  // 6. Confirmation modal works
+  it('6. confirmation modal works with explicit confirmation prompt', async () => {
+    vi.spyOn(api, 'fetchLoadingReview').mockResolvedValue(mockReviewData);
+
+    renderLoaderApp('/loader/tasks/trip-001/review');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Confirm Ready for Dispatch/i })).toBeDefined();
+    });
+
+    const confirmBtn = screen.getByRole('button', { name: /Confirm Ready for Dispatch/i });
+    fireEvent.click(confirmBtn);
+
+    expect(screen.getByText(/Confirm that loading has been completed and vehicle/i)).toBeDefined();
+    expect(screen.getByText('Cancel')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Confirm Ready' })).toBeDefined();
+
+    // Cancel closes modal
+    fireEvent.click(screen.getByText('Cancel'));
+    expect(screen.queryByText(/Confirm that loading has been completed and vehicle/i)).toBeNull();
+  });
+
+  // 7. Successful confirmation updates UI
+  it('7. successful confirmation updates UI to completed state', async () => {
+    vi.spyOn(api, 'fetchLoadingReview').mockResolvedValue(mockReviewData);
+    vi.spyOn(api, 'confirmReadyForDispatch').mockResolvedValue({
+      tripId: 'trip-001',
+      loadingStatus: LoadingStatus.READY_FOR_DISPATCH,
+      tripStatus: TripStatus.READY_FOR_DISPATCH,
+      completedAt: '2026-09-30T10:30:00.000Z',
+    });
+
+    renderLoaderApp('/loader/tasks/trip-001/review');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Confirm Ready for Dispatch/i })).toBeDefined();
+    });
+
+    const confirmBtn = screen.getByRole('button', { name: /Confirm Ready for Dispatch/i });
+    fireEvent.click(confirmBtn);
+
+    const modalConfirmBtn = screen.getByRole('button', { name: 'Confirm Ready' });
+    fireEvent.click(modalConfirmBtn);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Vehicle Ready for Dispatch')[0]).toBeDefined();
+    });
+
+    expect(
+      screen.getByText(/Loading has been confirmed and verified./i)
+    ).toBeDefined();
+  });
+
+  // 8. Return to Checklist navigation works
+  it('8. Return to Checklist navigation works', async () => {
+    vi.spyOn(api, 'fetchLoadingReview').mockResolvedValue(mockReviewData);
+    vi.spyOn(api, 'fetchLoadingChecklist').mockResolvedValue(mockChecklistData);
+
+    renderLoaderApp('/loader/tasks/trip-001/review');
+
+    await waitFor(() => {
+      expect(screen.getByText('7. Loading Review & Dispatch Ready')).toBeDefined();
+    });
+
+    const backBtn = screen.getByRole('button', { name: /Back to Loading Checklist/i });
+    fireEvent.click(backBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Loading Checklist')).toBeDefined();
+    });
+  });
+
+  // 9. Blocks non-loader role from accessing LS-07 route
+  it('9. blocks non-loader role from accessing LS-07 route', async () => {
+    sessionStorage.setItem(
+      'waypoint_user',
+      JSON.stringify({
+        id: 'dispatcher-1',
+        email: 'dispatcher@waypoint.local',
+        role: UserRole.DISPATCHER,
+      })
+    );
+
+    renderLoaderApp('/loader/tasks/trip-001/review');
+
+    await waitFor(() => {
+      expect(screen.getByText('Dispatcher Portal')).toBeDefined();
+      expect(screen.queryByText('7. Loading Review & Dispatch Ready')).toBeNull();
     });
   });
 });

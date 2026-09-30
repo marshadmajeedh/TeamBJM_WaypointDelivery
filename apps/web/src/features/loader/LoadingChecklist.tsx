@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
+  LoadingStatus,
   LoadingChecklistResponse,
   LoadingChecklistItem,
   LoadingChecklistStop,
@@ -75,6 +76,12 @@ export const LoadingChecklist: React.FC = () => {
 
   const handleConfirmItem = async (item: LoadingChecklistItem, targetQuantity?: number) => {
     if (!tripId || updatingItemId) return;
+
+    if (checklist?.loadingStatus === LoadingStatus.READY_FOR_DISPATCH) {
+      setUpdateError('Vehicle loading is already completed and marked ready for dispatch. Quantities are locked.');
+      return;
+    }
+
     const qtyToSet = targetQuantity !== undefined ? targetQuantity : item.stagedQuantity;
 
     setUpdatingItemId(item.id);
@@ -441,9 +448,10 @@ export const LoadingChecklist: React.FC = () => {
                             <button
                               style={{
                                 ...styles.confirmLoadedButton,
-                                opacity: isItemUpdating ? 0.6 : 1,
+                                opacity: isItemUpdating || checklist?.loadingStatus === LoadingStatus.READY_FOR_DISPATCH ? 0.6 : 1,
+                                cursor: checklist?.loadingStatus === LoadingStatus.READY_FOR_DISPATCH ? 'not-allowed' : 'pointer',
                               }}
-                              disabled={isItemUpdating}
+                              disabled={isItemUpdating || checklist?.loadingStatus === LoadingStatus.READY_FOR_DISPATCH}
                               onClick={() => handleConfirmItem(item, item.stagedQuantity)}
                             >
                               {isItemUpdating ? 'Confirming...' : `✓ Confirm ${item.stagedQuantity} ${item.unit}`}
@@ -503,10 +511,7 @@ export const LoadingChecklist: React.FC = () => {
         </button>
         <button
           style={styles.primaryActionButton}
-          onClick={() => {
-            setSaveNotice(`Loading manifest verified: ${overallProgress.totalLoaded}/${overallProgress.totalRequired} items confirmed.`);
-            setTimeout(() => setSaveNotice(null), 3000);
-          }}
+          onClick={() => navigate(`/loader/tasks/${tripId}/review`)}
         >
           Review Loading ({overallProgress.totalLoaded}/{overallProgress.totalRequired}) →
         </button>

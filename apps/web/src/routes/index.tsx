@@ -11,6 +11,7 @@ import {
   LoadingSequence,
   LoadingChecklist,
   LoadingIssueReport,
+  LoadingReviewDispatch,
 } from '../features/loader/LoaderPortal';
 import { DriverPortal } from '../features/driver/DriverPortal';
 import { LoginPortal } from '../features/auth/LoginPortal';
@@ -78,6 +79,14 @@ export const AppRoutes: React.FC = () => {
           element={
             <ProtectedRoute allowedRoles={[UserRole.LOADER]}>
               <LoadingIssueReport />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="loader/tasks/:tripId/review"
+          element={
+            <ProtectedRoute allowedRoles={[UserRole.LOADER]}>
+              <LoadingReviewDispatch />
             </ProtectedRoute>
           }
         />

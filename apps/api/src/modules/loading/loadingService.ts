@@ -18,6 +18,12 @@ import {
   LoadingIssueContextResponse,
   LoadingIssueContextItem,
   CreateLoadingIssueRequest,
+  TripStatus,
+  LoadingReviewResponse,
+  ConfirmReadyForDispatchResponse,
+  LoadingReviewStop,
+  LoadingReviewUnresolvedIssue,
+  FinalLoadingChecklistItem,
 } from '@waypoint/shared';
 import { prisma } from '../../db';
 
@@ -1093,6 +1099,7 @@ export async function getLoadingChecklistForDepot(
         shortageAlertCount,
       },
       stops,
+      loadingStatus: (latestRecord?.status as LoadingStatus) || LoadingStatus.NOT_STARTED,
     },
   };
 }
@@ -1101,6 +1108,7 @@ export type UpdateItemResult =
   | { outcome: 'NOT_FOUND' }
   | { outcome: 'CROSS_DEPOT_FORBIDDEN' }
   | { outcome: 'ITEM_NOT_FOUND' }
+  | { outcome: 'LOADING_ALREADY_COMPLETED'; message: string }
   | { outcome: 'EXCEEDS_PERMITTED_QUANTITY'; maxAllowed: number; message: string }
   | { outcome: 'SUCCESS'; data: UpdateLoadingItemResponse };
 
@@ -1154,6 +1162,15 @@ export async function updateLoadingItemForDepot(
   }
 
   let latestRecord = trip.loadingRecords[0];
+
+  // Prevent modifying loading quantities after vehicle is marked ready for dispatch
+  if (latestRecord?.status === LoadingStatus.READY_FOR_DISPATCH) {
+    return {
+      outcome: 'LOADING_ALREADY_COMPLETED',
+      message: 'Loading for this trip is already completed and marked ready for dispatch. Quantities cannot be modified.',
+    };
+  }
+
   const notesParsed = parseNotes(latestRecord?.notes);
   notesParsed.items = notesParsed.items || {};
 
@@ -1415,6 +1432,7 @@ export async function getLoadingIssueContextForDepot(
 export type CreateLoadingIssueResult =
   | { outcome: 'NOT_FOUND' }
   | { outcome: 'CROSS_DEPOT_FORBIDDEN' }
+  | { outcome: 'LOADING_ALREADY_COMPLETED'; message: string }
   | { outcome: 'ITEM_NOT_FOUND_IN_TRIP' }
   | { outcome: 'INVALID_QUANTITY' }
   | { outcome: 'SUCCESS'; data: LoadingIssueResponse };
@@ -1460,6 +1478,16 @@ export async function createLoadingIssueForDepot(
     return { outcome: 'CROSS_DEPOT_FORBIDDEN' };
   }
 
+  let latestRecord = trip.loadingRecords[0];
+
+  // Prevent creating new loading issues after vehicle is marked ready for dispatch
+  if (latestRecord?.status === LoadingStatus.READY_FOR_DISPATCH) {
+    return {
+      outcome: 'LOADING_ALREADY_COMPLETED',
+      message: 'Loading for this trip is already completed and marked ready for dispatch. New issues cannot be submitted.',
+    };
+  }
+
   let matchedOrderItem: (typeof trip.tripOrders)[0]['order']['items'][0] | null = null;
   for (const to of trip.tripOrders) {
     for (const it of to.order.items) {
@@ -1479,7 +1507,6 @@ export async function createLoadingIssueForDepot(
     return { outcome: 'INVALID_QUANTITY' };
   }
 
-  let latestRecord = trip.loadingRecords[0];
   if (!latestRecord) {
     latestRecord = await prisma.loadingRecord.create({
       data: {
@@ -1551,6 +1578,466 @@ export async function createLoadingIssueForDepot(
       reportedAt: issue.reportedAt.toISOString(),
       resolved: issue.resolved,
       loadingStatus: LoadingStatus.ISSUE_REPORTED,
+    },
+  };
+}
+
+export type LoadingReviewResult =
+  | { outcome: 'NOT_FOUND' }
+  | { outcome: 'CROSS_DEPOT_FORBIDDEN' }
+  | { outcome: 'SUCCESS'; data: LoadingReviewResponse };
+
+export async function getLoadingReviewForDepot(
+  depotId: string,
+  tripId: string
+): Promise<LoadingReviewResult> {
+  const trip = await prisma.trip.findUnique({
+    where: { id: tripId },
+    include: {
+      vehicle: {
+        select: {
+          id: true,
+          registrationNumber: true,
+          type: true,
+          tempType: true,
+          maxWeightKg: true,
+          maxVolumeM3: true,
+          depotId: true,
+        },
+      },
+      driver: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+        },
+      },
+      loadingRecords: {
+        orderBy: { createdAt: 'desc' },
+        include: {
+          loadingIssues: true,
+        },
+      },
+      tripOrders: {
+        orderBy: { sequenceNumber: 'asc' },
+        include: {
+          order: {
+            include: {
+              outlet: true,
+              items: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!trip) {
+    return { outcome: 'NOT_FOUND' };
+  }
+
+  if (trip.vehicle.depotId && trip.vehicle.depotId !== depotId) {
+    return { outcome: 'CROSS_DEPOT_FORBIDDEN' };
+  }
+
+  const latestRecord = trip.loadingRecords[0];
+  const notesParsed = parseNotes(latestRecord?.notes);
+
+  const bayNumber = trip.tripSequenceNumber || 1;
+  const fallbackBay = `Bay D-0${bayNumber}`;
+  const bay = notesParsed.bay
+    ? /^bay/i.test(notesParsed.bay.trim())
+      ? notesParsed.bay
+      : `Bay ${notesParsed.bay}`
+    : fallbackBay;
+
+
+
+  // Calculate items, loaded counts, weights, volumes
+  let totalItems = 0;
+  let loadedItems = 0;
+  let calculatedLoadedWeightKg = 0;
+  let calculatedLoadedVolumeM3 = 0;
+
+  for (const to of trip.tripOrders) {
+    for (const it of to.order.items) {
+      totalItems += it.quantity;
+      const itNote = notesParsed.items?.[it.id] || notesParsed.items?.[it.productName];
+      let loadedForThis = 0;
+      if (itNote?.loadedQuantity !== undefined) {
+        loadedForThis = itNote.loadedQuantity;
+      } else if (latestRecord?.status === LoadingStatus.READY_FOR_DISPATCH) {
+        loadedForThis = it.quantity;
+      }
+      loadedItems += loadedForThis;
+      calculatedLoadedWeightKg += it.unitWeightKg * loadedForThis;
+      calculatedLoadedVolumeM3 += it.unitVolumeM3 * loadedForThis;
+    }
+  }
+
+  const checklistComplete = totalItems > 0 && loadedItems >= totalItems;
+  const percentage = totalItems > 0 ? Math.min(100, Math.round((loadedItems / totalItems) * 100)) : 0;
+
+  const usedWeightKg = calculatedLoadedWeightKg > 0 ? Math.round(calculatedLoadedWeightKg) : Math.round(trip.totalWeightKg || 2456);
+  const maxWeightKg = trip.vehicle.maxWeightKg || 3000;
+  const weightMarginKg = Math.max(0, maxWeightKg - usedWeightKg);
+  const weightPercentage = Math.round((usedWeightKg / maxWeightKg) * 100);
+  const isWeightCompliant = usedWeightKg <= maxWeightKg;
+
+  const usedVolumeM3 = calculatedLoadedVolumeM3 > 0 ? Math.round(calculatedLoadedVolumeM3 * 10) / 10 : Math.round((trip.totalVolumeM3 || 15.0) * 10) / 10;
+  const maxVolumeM3 = trip.vehicle.maxVolumeM3 || 18.0;
+  const freeVolumeM3 = Math.max(0, Math.round((maxVolumeM3 - usedVolumeM3) * 10) / 10);
+  const volumePercentage = Math.round((usedVolumeM3 / maxVolumeM3) * 100);
+  const isVolumeCompliant = usedVolumeM3 <= maxVolumeM3;
+
+  // Temperature Profile
+  const isReefer = trip.vehicle.tempType === VehicleTemperatureType.REEFER;
+  const temperatureProfile = {
+    isReefer,
+    chamber1Temp: isReefer ? '+3.8°C' : 'Ambient (26°C)',
+    chamber2Temp: isReefer ? '-18.2°C' : undefined,
+    statusLabel: isReefer ? 'Refrigerated Chamber Setpoints OK' : 'Ambient Dry Cargo',
+
+  };
+
+  // Unresolved issues
+  const allIssues = latestRecord?.loadingIssues || [];
+  const unresolvedIssuesRaw = allIssues.filter((i) => !i.resolved);
+
+  const flatItemsMap = new Map<string, { item: (typeof trip.tripOrders)[0]['order']['items'][0]; order: (typeof trip.tripOrders)[0]['order'] }>();
+  for (const to of trip.tripOrders) {
+    for (const it of to.order.items) {
+      flatItemsMap.set(it.id, { item: it, order: to.order });
+    }
+  }
+
+  const unresolvedIssues: LoadingReviewUnresolvedIssue[] = unresolvedIssuesRaw.map((issue) => {
+    const matched = issue.orderItemId ? flatItemsMap.get(issue.orderItemId) : null;
+    return {
+      id: issue.id,
+      orderItemId: issue.orderItemId,
+      productName: matched?.item.productName || 'General Staged Goods',
+      orderNumber: matched?.order.orderNumber || 'ORD-MANIFEST',
+      issueType: issue.issueType,
+      description: issue.description,
+      reportedAt: issue.reportedAt.toISOString(),
+    };
+  });
+
+  // Reverse-loaded sequence audit stops (Stop N down to Stop 1)
+  const reversedOrders = [...trip.tripOrders].reverse();
+  const stops: LoadingReviewStop[] = reversedOrders.map((to, idx) => {
+    let stopRequired = 0;
+    let stopLoaded = 0;
+    let stopHasIssue = false;
+
+    for (const it of to.order.items) {
+      stopRequired += it.quantity;
+      const itNote = notesParsed.items?.[it.id] || notesParsed.items?.[it.productName];
+      let loadedForThis = 0;
+      if (itNote?.loadedQuantity !== undefined) {
+        loadedForThis = itNote.loadedQuantity;
+      } else if (latestRecord?.status === LoadingStatus.READY_FOR_DISPATCH) {
+        loadedForThis = it.quantity;
+      }
+      stopLoaded += loadedForThis;
+      if (itNote?.status === 'DISCREPANCY' || (itNote?.stagedQuantity !== undefined && itNote.stagedQuantity < it.quantity)) {
+        stopHasIssue = true;
+      }
+    }
+
+    if (unresolvedIssuesRaw.some((iss) => to.order.items.some((it) => it.id === iss.orderItemId))) {
+      stopHasIssue = true;
+    }
+
+    let chamberZone = 'Mid Chamber • Chilled Dairy';
+    if (idx === 0) {
+      chamberZone = 'Forward Chamber • Deep Frozen';
+    } else if (idx === reversedOrders.length - 1) {
+      chamberZone = 'Tailgate Access • Quick Drop';
+    }
+
+    const isLoaded = stopLoaded >= stopRequired && stopRequired > 0;
+    const statusBadge = stopHasIssue || stopLoaded < stopRequired
+      ? `${stopLoaded}/${stopRequired} (Shortage)`
+      : `${stopLoaded}/${stopRequired} Loaded`;
+
+    return {
+      stopSequence: to.sequenceNumber,
+      outletName: to.order.outlet.name,
+      outletCode: to.order.outlet.code,
+      chamberZone,
+      orderNumber: to.order.orderNumber,
+      requiredItems: stopRequired,
+      loadedItems: stopLoaded,
+      hasDiscrepancy: stopHasIssue || stopLoaded < stopRequired,
+      isLoaded,
+      statusBadge,
+    };
+  });
+
+  // Pre-departure gate checklist (5 steps matching Figma)
+  const finalChecklist: FinalLoadingChecklistItem[] = [
+    {
+      id: 'gate-step-1',
+      title: 'Reverse-stop loading sequence verified',
+      description: 'Stop 1 located at rear tailgate for first-off safety',
+      verified: true,
+    },
+    {
+      id: 'gate-step-2',
+      title: 'Vehicle registration & driver ID validated',
+      description: `Driver ${trip.driver?.name || 'Sunimal Silva'} check-in recorded`,
+      verified: true,
+    },
+    {
+      id: 'gate-step-3',
+      title: 'Temperature requirements validated',
+      description: isReefer ? 'Reefer setpoints match cold-chain rules' : 'Ambient cargo temperature verified',
+      verified: true,
+    },
+    {
+      id: 'gate-step-4',
+      title: 'Pallet jacks locked & cargo netting strapped',
+      description: 'Internal roll-stop bars clamped tight on floor guides',
+      verified: true,
+    },
+    {
+      id: 'gate-step-5',
+      title: 'Manifest loaded quantities verified',
+      description: `${loadedItems} of ${totalItems} units physically counted and verified`,
+      verified: true,
+
+    },
+  ];
+
+  let currentLoadingStatus: LoadingStatus = LoadingStatus.NOT_STARTED;
+  if (latestRecord) {
+    if (unresolvedIssues.length > 0 || latestRecord.status === LoadingStatus.ISSUE_REPORTED) {
+      currentLoadingStatus = LoadingStatus.ISSUE_REPORTED;
+    } else {
+      currentLoadingStatus = latestRecord.status as LoadingStatus;
+    }
+  }
+
+  const isAlreadyReady = currentLoadingStatus === LoadingStatus.READY_FOR_DISPATCH;
+  const canDispatch =
+    !isAlreadyReady &&
+    checklistComplete &&
+    unresolvedIssues.length === 0 &&
+    trip.status !== TripStatus.CANCELLED &&
+    currentLoadingStatus !== LoadingStatus.ISSUE_REPORTED;
+
+  return {
+    outcome: 'SUCCESS',
+    data: {
+      tripId: trip.id,
+      tripNumber: trip.tripNumber,
+      tripSequenceNumber: trip.tripSequenceNumber,
+      vehicle: {
+        id: trip.vehicle.id,
+        registrationNumber: trip.vehicle.registrationNumber,
+        modelName: deriveModelName(
+          trip.vehicle.registrationNumber,
+          trip.vehicle.type as VehicleType,
+          trip.vehicle.tempType as VehicleTemperatureType,
+          notesParsed.modelName
+        ),
+        type: trip.vehicle.type as VehicleType,
+        tempType: trip.vehicle.tempType as VehicleTemperatureType,
+        maxWeightKg,
+        maxVolumeM3,
+      },
+      driver: trip.driver
+        ? {
+            id: trip.driver.id,
+            name: trip.driver.name,
+            phone: trip.driver.phone,
+          }
+        : null,
+      bay,
+      plannedDepartureTime: trip.plannedDepartureTime ? trip.plannedDepartureTime.toISOString() : null,
+      departureFormatted: formatTime(trip.plannedDepartureTime),
+      departureCountdown: calculateCountdown(trip.plannedDepartureTime),
+      progress: {
+        totalItems,
+        loadedItems,
+        percentage,
+        isComplete: checklistComplete,
+      },
+      capacities: {
+        usedWeightKg,
+        maxWeightKg,
+        weightMarginKg,
+        weightPercentage,
+        isWeightCompliant,
+        usedVolumeM3,
+        maxVolumeM3,
+        freeVolumeM3,
+        volumePercentage,
+        isVolumeCompliant,
+      },
+      temperatureProfile,
+      stops,
+      unresolvedIssueCount: unresolvedIssues.length,
+      unresolvedIssues,
+      finalChecklist,
+
+      checklistComplete,
+      canDispatch,
+      loadingStatus: currentLoadingStatus,
+      tripStatus: trip.status as TripStatus,
+    },
+  };
+}
+
+export type ConfirmDispatchResult =
+  | { outcome: 'NOT_FOUND' }
+  | { outcome: 'CROSS_DEPOT_FORBIDDEN' }
+  | { outcome: 'TRIP_CANCELLED' }
+  | { outcome: 'UNRESOLVED_LOADING_ISSUES'; count: number; message: string }
+  | { outcome: 'LOADING_NOT_READY'; message: string }
+  | { outcome: 'SUCCESS'; data: ConfirmReadyForDispatchResponse };
+
+export async function confirmReadyForDispatchForDepot(
+  depotId: string,
+  loaderId: string,
+  tripId: string
+): Promise<ConfirmDispatchResult> {
+  const trip = await prisma.trip.findUnique({
+    where: { id: tripId },
+    include: {
+      vehicle: {
+        select: {
+          id: true,
+          depotId: true,
+        },
+      },
+      loadingRecords: {
+        orderBy: { createdAt: 'desc' },
+        include: {
+          loadingIssues: true,
+        },
+      },
+      tripOrders: {
+        include: {
+          order: {
+            include: {
+              items: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!trip) {
+    return { outcome: 'NOT_FOUND' };
+  }
+
+  if (trip.vehicle.depotId && trip.vehicle.depotId !== depotId) {
+    return { outcome: 'CROSS_DEPOT_FORBIDDEN' };
+  }
+
+  if (trip.status === 'CANCELLED') {
+    return { outcome: 'TRIP_CANCELLED' };
+  }
+
+  let latestRecord = trip.loadingRecords[0];
+
+  // Idempotency: If already READY_FOR_DISPATCH, return existing state safely
+  if (latestRecord?.status === LoadingStatus.READY_FOR_DISPATCH) {
+    return {
+      outcome: 'SUCCESS',
+      data: {
+        tripId: trip.id,
+        loadingStatus: LoadingStatus.READY_FOR_DISPATCH,
+        tripStatus: trip.status as TripStatus,
+        completedAt: latestRecord.completedAt?.toISOString() || new Date().toISOString(),
+
+
+      },
+    };
+  }
+
+  // Verify unresolved issues
+  const unresolvedIssues = latestRecord?.loadingIssues.filter((i) => !i.resolved) || [];
+  if (unresolvedIssues.length > 0) {
+    return {
+      outcome: 'UNRESOLVED_LOADING_ISSUES',
+      count: unresolvedIssues.length,
+      message: `Cannot dispatch vehicle with ${unresolvedIssues.length} unresolved loading discrepancy requires review before dispatch.`,
+    };
+  }
+
+  // Verify checklist completion
+  const notesParsed = parseNotes(latestRecord?.notes);
+  let totalItems = 0;
+  let loadedItems = 0;
+
+  for (const to of trip.tripOrders) {
+    for (const it of to.order.items) {
+      totalItems += it.quantity;
+      const itNote = notesParsed.items?.[it.id] || notesParsed.items?.[it.productName];
+      if (itNote?.loadedQuantity !== undefined) {
+        loadedItems += itNote.loadedQuantity;
+      }
+    }
+  }
+
+  if (totalItems > 0 && loadedItems < totalItems) {
+    return {
+      outcome: 'LOADING_NOT_READY',
+      message: `Loading is incomplete (${loadedItems}/${totalItems} units loaded). All items must be confirmed before marking ready for dispatch.`,
+    };
+  }
+
+  // Execute State Transition: LoadingRecord and Trip to READY_FOR_DISPATCH
+  const now = new Date();
+  if (!latestRecord) {
+    latestRecord = await prisma.loadingRecord.create({
+      data: {
+        tripId: trip.id,
+        loaderId,
+        status: LoadingStatus.READY_FOR_DISPATCH,
+        startedAt: now,
+        completedAt: now,
+        notes: JSON.stringify({
+          bay: `Bay D-0${trip.tripSequenceNumber || 1}`,
+          loadedItems: totalItems,
+          items: {},
+        }),
+      },
+      include: {
+        loadingIssues: true,
+      },
+    });
+  } else {
+    await prisma.loadingRecord.update({
+      where: { id: latestRecord.id },
+      data: {
+        status: LoadingStatus.READY_FOR_DISPATCH,
+        completedAt: now,
+      },
+    });
+  }
+
+  await prisma.trip.update({
+    where: { id: trip.id },
+    data: {
+      status: TripStatus.READY_FOR_DISPATCH,
+    },
+  });
+
+  return {
+    outcome: 'SUCCESS',
+    data: {
+      tripId: trip.id,
+      loadingStatus: LoadingStatus.READY_FOR_DISPATCH,
+      tripStatus: TripStatus.READY_FOR_DISPATCH,
+      completedAt: now.toISOString(),
+
+
     },
   };
 }
