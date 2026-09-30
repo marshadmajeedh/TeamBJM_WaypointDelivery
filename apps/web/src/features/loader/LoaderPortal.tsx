@@ -5,6 +5,7 @@ export { LoaderDashboard } from './LoaderDashboard';
 export { VehicleLoadingDetails } from './VehicleLoadingDetails';
 export { LoadingSequence } from './LoadingSequence';
 export { LoadingChecklist } from './LoadingChecklist';
+export { LoadingIssueReport } from './LoadingIssueReport';
 
 export const LoaderPortal: React.FC = () => {
   return <LoaderDashboard />;

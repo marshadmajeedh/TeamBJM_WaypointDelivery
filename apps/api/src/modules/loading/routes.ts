@@ -1,5 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { UserRole, UpdateLoadingItemRequestSchema } from '@waypoint/shared';
+import {
+  UserRole,
+  UpdateLoadingItemRequestSchema,
+  CreateLoadingIssueRequestSchema,
+} from '@waypoint/shared';
 import { prisma } from '../../db';
 import { authenticate, authorizeRoles } from '../../middleware/auth';
 import { sendSuccess, sendError } from '../../shared/response';
@@ -9,6 +13,8 @@ import {
   getLoadingSequenceForDepot,
   getLoadingChecklistForDepot,
   updateLoadingItemForDepot,
+  getLoadingIssueContextForDepot,
+  createLoadingIssueForDepot,
 } from './loadingService';
 
 export const loadingRouter = Router();
@@ -323,6 +329,133 @@ loadingRouter.patch(
       }
 
       return sendSuccess(res, result.data);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+/**
+ * GET /api/loading/tasks/:tripId/issue-context
+ * Returns context for reporting a loading issue on a trip (LS-06).
+ */
+loadingRouter.get(
+  '/tasks/:tripId/issue-context',
+  authenticate,
+  authorizeRoles(UserRole.LOADER),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const loaderId = req.user?.id;
+      if (!loaderId) {
+        return sendError(res, 'UNAUTHORIZED', 'Loader authentication required', 401);
+      }
+
+      const depotId = await getAuthenticatedLoaderDepot(loaderId);
+      if (!depotId) {
+        return sendError(
+          res,
+          'LOADER_DEPOT_NOT_ASSIGNED',
+          'Loader is not assigned to a valid depot',
+          403
+        );
+      }
+
+      const { tripId } = req.params;
+      const requestedItemId = req.query.itemId as string | undefined;
+
+      const result = await getLoadingIssueContextForDepot(depotId, tripId, requestedItemId);
+
+      if (result.outcome === 'NOT_FOUND') {
+        return sendError(res, 'NOT_FOUND', `Trip '${tripId}' not found`, 404);
+      }
+
+      if (result.outcome === 'CROSS_DEPOT_FORBIDDEN') {
+        return sendError(res, 'FORBIDDEN', 'Access to cross-depot trip is forbidden', 403);
+      }
+
+      if (result.outcome === 'NO_ITEMS') {
+        return sendError(res, 'NOT_FOUND', 'No items found for this trip', 404);
+      }
+
+      return sendSuccess(res, result.data);
+    } catch (error) {
+      return next(error);
+    }
+  }
+);
+
+/**
+ * POST /api/loading/tasks/:tripId/issues
+ * Submits a physical loading issue / discrepancy report (LS-06).
+ */
+loadingRouter.post(
+  '/tasks/:tripId/issues',
+  authenticate,
+  authorizeRoles(UserRole.LOADER),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const loaderId = req.user?.id;
+      if (!loaderId) {
+        return sendError(res, 'UNAUTHORIZED', 'Loader authentication required', 401);
+      }
+
+      const depotId = await getAuthenticatedLoaderDepot(loaderId);
+      if (!depotId) {
+        return sendError(
+          res,
+          'LOADER_DEPOT_NOT_ASSIGNED',
+          'Loader is not assigned to a valid depot',
+          403
+        );
+      }
+
+      const { tripId } = req.params;
+
+      const parseResult = CreateLoadingIssueRequestSchema.safeParse(req.body);
+      if (!parseResult.success) {
+        return sendError(
+          res,
+          'VALIDATION_ERROR',
+          'Invalid loading issue request body',
+          400,
+          parseResult.error.flatten()
+        );
+      }
+
+      const result = await createLoadingIssueForDepot(
+        depotId,
+        loaderId,
+        tripId,
+        parseResult.data
+      );
+
+      if (result.outcome === 'NOT_FOUND') {
+        return sendError(res, 'NOT_FOUND', `Trip '${tripId}' not found`, 404);
+      }
+
+      if (result.outcome === 'CROSS_DEPOT_FORBIDDEN') {
+        return sendError(res, 'FORBIDDEN', 'Access to cross-depot trip is forbidden', 403);
+      }
+
+      if (result.outcome === 'ITEM_NOT_FOUND_IN_TRIP') {
+        return sendError(
+          res,
+          'NOT_FOUND',
+          `Item '${parseResult.data.itemId}' does not belong to trip '${tripId}'`,
+          404
+        );
+      }
+
+      if (result.outcome === 'INVALID_QUANTITY') {
+        return sendError(
+          res,
+          'INVALID_QUANTITY',
+          'Discrepancy quantity must be greater than zero and within permitted limits',
+          400
+        );
+      }
+
+      return sendSuccess(res, result.data, 201);
     } catch (error) {
       return next(error);
     }

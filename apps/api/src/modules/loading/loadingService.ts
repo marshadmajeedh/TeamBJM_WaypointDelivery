@@ -14,15 +14,23 @@ import {
   LoadingChecklistStop,
   LoadingChecklistItem,
   UpdateLoadingItemResponse,
+  LoadingIssueResponse,
+  LoadingIssueContextResponse,
+  LoadingIssueContextItem,
+  CreateLoadingIssueRequest,
 } from '@waypoint/shared';
 import { prisma } from '../../db';
 
 export interface ItemStateNote {
   loadedQuantity?: number;
   stagedQuantity?: number;
+  requiredQuantity?: number;
   shortageDetails?: string;
   sku?: string;
   notes?: string;
+  status?: string;
+  issueId?: string;
+  issueType?: string;
   updatedAt?: string;
 }
 
@@ -910,6 +918,9 @@ export async function getLoadingChecklistForDepot(
       },
       loadingRecords: {
         orderBy: { createdAt: 'desc' },
+        include: {
+          loadingIssues: true,
+        },
       },
       tripOrders: {
         orderBy: { sequenceNumber: 'asc' },
@@ -962,17 +973,27 @@ export async function getLoadingChecklistForDepot(
       const shortageQuantity = hasShortage ? requiredQuantity - stagedQuantity : 0;
       const unit = deriveUnit(it.productName);
 
-      const shortageDetails = hasShortage
-        ? itemNote?.shortageDetails ||
-          `Shortage detected: ${shortageQuantity} ${unit} missing from pallet #P-${to.order.outlet.code.replace('#', '')}`
-        : null;
+      // Check if an unresolved issue exists for this item
+      const itemIssue = latestRecord?.loadingIssues?.find(
+        (iss) => iss.orderItemId === it.id && !iss.resolved
+      );
+      const isDiscrepancy = !!itemIssue || itemNote?.status === 'DISCREPANCY';
+
+      const shortageDetails = itemIssue
+        ? `Issue reported (${itemIssue.issueType}): ${itemIssue.description}`
+        : hasShortage
+          ? itemNote?.shortageDetails ||
+            `Shortage detected: ${shortageQuantity} ${unit} missing from pallet #P-${to.order.outlet.code.replace('#', '')}`
+          : itemNote?.shortageDetails || null;
 
       const isLoaded = loadedQuantity >= stagedQuantity && loadedQuantity > 0;
-      const status: 'PENDING' | 'LOADED' | 'SHORTAGE' | 'DISCREPANCY' = isLoaded
-        ? 'LOADED'
-        : hasShortage
-          ? 'SHORTAGE'
-          : 'PENDING';
+      const status: 'PENDING' | 'LOADED' | 'SHORTAGE' | 'DISCREPANCY' = isDiscrepancy
+        ? 'DISCREPANCY'
+        : isLoaded
+          ? 'LOADED'
+          : hasShortage
+            ? 'SHORTAGE'
+            : 'PENDING';
 
       const tempLabel =
         it.tempRequirement === TemperatureRequirement.FROZEN
@@ -1214,6 +1235,322 @@ export async function updateLoadingItemForDepot(
       item: updatedItem,
       overallProgress: checklistResult.data.overallProgress,
       loadingStatus: newStatus as LoadingStatus,
+    },
+  };
+}
+
+export type LoadingIssueContextResult =
+  | { outcome: 'NOT_FOUND' }
+  | { outcome: 'CROSS_DEPOT_FORBIDDEN' }
+  | { outcome: 'NO_ITEMS' }
+  | { outcome: 'SUCCESS'; data: LoadingIssueContextResponse };
+
+export async function getLoadingIssueContextForDepot(
+  depotId: string,
+  tripId: string,
+  requestedItemId?: string
+): Promise<LoadingIssueContextResult> {
+  const trip = await prisma.trip.findUnique({
+    where: { id: tripId },
+    include: {
+      vehicle: {
+        select: {
+          id: true,
+          registrationNumber: true,
+          type: true,
+          tempType: true,
+          depotId: true,
+        },
+      },
+      loadingRecords: {
+        orderBy: { createdAt: 'desc' },
+        include: {
+          loadingIssues: true,
+        },
+      },
+      tripOrders: {
+        orderBy: { sequenceNumber: 'asc' },
+        include: {
+          order: {
+            include: {
+              outlet: true,
+              items: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!trip) {
+    return { outcome: 'NOT_FOUND' };
+  }
+
+  if (trip.vehicle.depotId && trip.vehicle.depotId !== depotId) {
+    return { outcome: 'CROSS_DEPOT_FORBIDDEN' };
+  }
+
+  const latestRecord = trip.loadingRecords[0];
+  const notesParsed = parseNotes(latestRecord?.notes);
+
+  const bayNumber = trip.tripSequenceNumber || 1;
+  const fallbackBay = `Bay 0${bayNumber}`;
+  const bay = notesParsed.bay
+    ? /^bay/i.test(notesParsed.bay.trim())
+      ? notesParsed.bay
+      : `Bay ${notesParsed.bay}`
+    : fallbackBay;
+
+  type FlatItem = {
+    item: (typeof trip.tripOrders)[0]['order']['items'][0];
+    order: (typeof trip.tripOrders)[0]['order'];
+    outlet: (typeof trip.tripOrders)[0]['order']['outlet'];
+    stopSequence: number;
+    index: number;
+  };
+
+  const allItems: FlatItem[] = [];
+  let currentIndex = 0;
+  for (const to of trip.tripOrders) {
+    for (const it of to.order.items) {
+      currentIndex += 1;
+      allItems.push({
+        item: it,
+        order: to.order,
+        outlet: to.order.outlet,
+        stopSequence: to.sequenceNumber,
+        index: currentIndex,
+      });
+    }
+  }
+
+  if (allItems.length === 0) {
+    return { outcome: 'NO_ITEMS' };
+  }
+
+  let matched: FlatItem | undefined = requestedItemId
+    ? allItems.find((e) => e.item.id === requestedItemId)
+    : undefined;
+
+  if (!matched) {
+    matched = allItems.find((e) => {
+      const itemNote = notesParsed.items?.[e.item.id] || notesParsed.items?.[e.item.productName];
+      const stagedQuantity = itemNote?.stagedQuantity !== undefined ? itemNote.stagedQuantity : e.item.quantity;
+      return e.item.quantity > stagedQuantity;
+    });
+  }
+
+  if (!matched) {
+    matched = allItems[0];
+  }
+
+  const target = matched;
+  const itemNote = notesParsed.items?.[target.item.id] || notesParsed.items?.[target.item.productName];
+  const requiredQuantity = target.item.quantity;
+  const stagedQuantity = itemNote?.stagedQuantity !== undefined ? itemNote.stagedQuantity : requiredQuantity;
+  const shortageQuantity = Math.max(0, requiredQuantity - stagedQuantity);
+  const unit = deriveUnit(target.item.productName);
+
+  const tempLabel =
+    target.item.tempRequirement === TemperatureRequirement.FROZEN
+      ? 'Frozen (-18°C)'
+      : target.item.tempRequirement === TemperatureRequirement.CHILLED
+        ? 'Cold Chain 4°C'
+        : 'Ambient';
+
+  const selectedItem: LoadingIssueContextItem = {
+    id: target.item.id,
+    orderId: target.order.id,
+    orderNumber: target.order.orderNumber,
+    outletName: target.outlet.name,
+    outletCode: target.outlet.code,
+    sku: deriveSku(target.item, itemNote),
+    productName: target.item.productName,
+    unit,
+    tempRequirement: target.item.tempRequirement as TemperatureRequirement,
+    tempLabel,
+    expectedQuantity: requiredQuantity,
+    stagedQuantity,
+    shortageQuantity,
+    unitWeightKg: target.item.unitWeightKg,
+    totalWeightKg: Math.round(target.item.unitWeightKg * requiredQuantity),
+  };
+
+  const availableItems = allItems.map((e) => ({
+    id: e.item.id,
+    productName: e.item.productName,
+    sku: deriveSku(e.item, notesParsed.items?.[e.item.id]),
+    orderNumber: e.order.orderNumber,
+    outletName: e.outlet.name,
+  }));
+
+  return {
+    outcome: 'SUCCESS',
+    data: {
+      tripId: trip.id,
+      tripNumber: trip.tripNumber,
+      tripSequenceNumber: trip.tripSequenceNumber,
+      vehicle: {
+        id: trip.vehicle.id,
+        registrationNumber: trip.vehicle.registrationNumber,
+        modelName: deriveModelName(
+          trip.vehicle.registrationNumber,
+          trip.vehicle.type as VehicleType,
+          trip.vehicle.tempType as VehicleTemperatureType,
+          notesParsed.modelName
+        ),
+        tempType: trip.vehicle.tempType as VehicleTemperatureType,
+      },
+      bay,
+      departureTime: trip.plannedDepartureTime ? trip.plannedDepartureTime.toISOString() : null,
+      departureFormatted: formatTime(trip.plannedDepartureTime),
+      totalItemsCount: allItems.length,
+      itemIndex: target.index,
+      selectedItem,
+      availableItems,
+    },
+  };
+}
+
+export type CreateLoadingIssueResult =
+  | { outcome: 'NOT_FOUND' }
+  | { outcome: 'CROSS_DEPOT_FORBIDDEN' }
+  | { outcome: 'ITEM_NOT_FOUND_IN_TRIP' }
+  | { outcome: 'INVALID_QUANTITY' }
+  | { outcome: 'SUCCESS'; data: LoadingIssueResponse };
+
+export async function createLoadingIssueForDepot(
+  depotId: string,
+  loaderId: string,
+  tripId: string,
+  req: CreateLoadingIssueRequest
+): Promise<CreateLoadingIssueResult> {
+  const trip = await prisma.trip.findUnique({
+    where: { id: tripId },
+    include: {
+      vehicle: {
+        select: {
+          id: true,
+          depotId: true,
+        },
+      },
+      loadingRecords: {
+        orderBy: { createdAt: 'desc' },
+        include: {
+          loadingIssues: true,
+        },
+      },
+      tripOrders: {
+        include: {
+          order: {
+            include: {
+              items: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!trip) {
+    return { outcome: 'NOT_FOUND' };
+  }
+
+  if (trip.vehicle.depotId && trip.vehicle.depotId !== depotId) {
+    return { outcome: 'CROSS_DEPOT_FORBIDDEN' };
+  }
+
+  let matchedOrderItem: (typeof trip.tripOrders)[0]['order']['items'][0] | null = null;
+  for (const to of trip.tripOrders) {
+    for (const it of to.order.items) {
+      if (it.id === req.itemId) {
+        matchedOrderItem = it;
+        break;
+      }
+    }
+    if (matchedOrderItem) break;
+  }
+
+  if (!matchedOrderItem) {
+    return { outcome: 'ITEM_NOT_FOUND_IN_TRIP' };
+  }
+
+  if (req.quantity <= 0 || req.quantity > matchedOrderItem.quantity) {
+    return { outcome: 'INVALID_QUANTITY' };
+  }
+
+  let latestRecord = trip.loadingRecords[0];
+  if (!latestRecord) {
+    latestRecord = await prisma.loadingRecord.create({
+      data: {
+        tripId,
+        loaderId,
+        status: LoadingStatus.ISSUE_REPORTED,
+        startedAt: new Date(),
+        notes: JSON.stringify({
+          bay: `Bay D-0${trip.tripSequenceNumber || 1}`,
+          items: {},
+        }),
+      },
+      include: {
+        loadingIssues: true,
+      },
+    });
+  }
+
+  const issue = await prisma.loadingIssue.create({
+    data: {
+      loadingRecordId: latestRecord.id,
+      orderItemId: matchedOrderItem.id,
+      issueType: req.type,
+      description: req.description,
+      resolved: false,
+      reportedAt: new Date(),
+    },
+  });
+
+  const notesParsed = parseNotes(latestRecord.notes);
+  notesParsed.items = notesParsed.items || {};
+  const existingNote = notesParsed.items[matchedOrderItem.id] || {};
+  const unit = deriveUnit(matchedOrderItem.productName);
+
+  const updatedStagedQty = req.actualQuantity !== undefined
+    ? req.actualQuantity
+    : Math.max(0, matchedOrderItem.quantity - req.quantity);
+
+  notesParsed.items[matchedOrderItem.id] = {
+    ...existingNote,
+    requiredQuantity: matchedOrderItem.quantity,
+    stagedQuantity: updatedStagedQty,
+    loadedQuantity: existingNote.loadedQuantity || 0,
+    status: 'DISCREPANCY',
+    issueId: issue.id,
+    issueType: req.type,
+    shortageDetails: `Issue reported (${req.type}): ${req.quantity} ${unit} affected. ${req.description}`,
+    updatedAt: new Date().toISOString(),
+  };
+
+  notesParsed.issueDetails = `${req.type}: ${matchedOrderItem.productName} (${req.quantity} ${unit} affected) - ${req.description}`;
+
+  await prisma.loadingRecord.update({
+    where: { id: latestRecord.id },
+    data: {
+      status: LoadingStatus.ISSUE_REPORTED,
+      notes: JSON.stringify(notesParsed),
+    },
+  });
+
+  return {
+    outcome: 'SUCCESS',
+    data: {
+      id: issue.id,
+      tripId,
+      orderItemId: issue.orderItemId,
+      issueType: issue.issueType,
+      description: issue.description,
+      reportedAt: issue.reportedAt.toISOString(),
+      resolved: issue.resolved,
+      loadingStatus: LoadingStatus.ISSUE_REPORTED,
     },
   };
 }

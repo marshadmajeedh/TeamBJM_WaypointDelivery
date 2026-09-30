@@ -431,7 +431,7 @@ export const LoadingChecklist: React.FC = () => {
                           {item.hasShortage && (
                             <button
                               style={styles.reportShortageButton}
-                              onClick={() => navigate(`/loader/tasks/${tripId}/issues/new`)}
+                              onClick={() => navigate(`/loader/tasks/${tripId}/issues/new?itemId=${item.id}`)}
                             >
                               ⚠️ Report Shortage / Issue
                             </button>

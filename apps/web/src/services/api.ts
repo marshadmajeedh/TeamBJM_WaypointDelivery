@@ -9,6 +9,9 @@ import {
   LoadingSequenceResponse,
   LoadingChecklistResponse,
   UpdateLoadingItemResponse,
+  LoadingIssueResponse,
+  LoadingIssueContextResponse,
+  CreateLoadingIssueRequest,
 } from '@waypoint/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
@@ -180,6 +183,38 @@ export async function updateLoadingChecklistItem(
     {
       method: 'PATCH',
       body: JSON.stringify({ loadedQuantity }),
+    }
+  );
+  return response.data;
+}
+
+/**
+ * Loader Feature 3 (LS-06): Fetch issue reporting context for trip and item.
+ */
+export async function fetchLoadingIssueContext(
+  tripId: string,
+  itemId?: string
+): Promise<LoadingIssueContextResponse> {
+  const url = itemId
+    ? `/loading/tasks/${encodeURIComponent(tripId)}/issue-context?itemId=${encodeURIComponent(itemId)}`
+    : `/loading/tasks/${encodeURIComponent(tripId)}/issue-context`;
+
+  const response = await apiRequest<ApiResponseSuccess<LoadingIssueContextResponse>>(url);
+  return response.data;
+}
+
+/**
+ * Loader Feature 3 (LS-06): Submit a physical loading issue / discrepancy report.
+ */
+export async function createLoadingIssue(
+  tripId: string,
+  req: CreateLoadingIssueRequest
+): Promise<LoadingIssueResponse> {
+  const response = await apiRequest<ApiResponseSuccess<LoadingIssueResponse>>(
+    `/loading/tasks/${encodeURIComponent(tripId)}/issues`,
+    {
+      method: 'POST',
+      body: JSON.stringify(req),
     }
   );
   return response.data;

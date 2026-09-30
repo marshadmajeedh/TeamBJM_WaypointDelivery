@@ -362,3 +362,77 @@ export const UpdateLoadingItemResponseSchema = z.object({
   overallProgress: LoadingChecklistOverallProgressSchema,
   loadingStatus: LoadingStatusSchema,
 });
+
+// Loading Issue Schemas (LS-06)
+export const LoadingIssueTypeSchema = z.enum([
+  'MISSING',
+  'DAMAGED',
+  'TEMPERATURE_VIOLATION',
+  'INCORRECT_SKU',
+]);
+
+export const CreateLoadingIssueRequestSchema = z.object({
+  itemId: z.string().min(1),
+  type: LoadingIssueTypeSchema,
+  quantity: z.number().int().min(1),
+  description: z.string().min(5).max(500),
+  photoUrl: z.string().optional().nullable(),
+  expectedQuantity: z.number().int().min(1).optional(),
+  actualQuantity: z.number().int().min(0).optional(),
+});
+
+export const LoadingIssueResponseSchema = z.object({
+  id: z.string(),
+  tripId: z.string(),
+  orderItemId: z.string().nullable(),
+  issueType: z.string(),
+  description: z.string(),
+  reportedAt: z.string(),
+  resolved: z.boolean(),
+  loadingStatus: LoadingStatusSchema,
+});
+
+export const LoadingIssueContextItemSchema = z.object({
+  id: z.string(),
+  orderId: z.string(),
+  orderNumber: z.string(),
+  outletName: z.string(),
+  outletCode: z.string(),
+  sku: z.string(),
+  productName: z.string(),
+  unit: z.string(),
+  tempRequirement: TemperatureRequirementSchema,
+  tempLabel: z.string(),
+  expectedQuantity: z.number(),
+  stagedQuantity: z.number(),
+  shortageQuantity: z.number(),
+  unitWeightKg: z.number(),
+  totalWeightKg: z.number(),
+});
+
+export const LoadingIssueContextResponseSchema = z.object({
+  tripId: z.string(),
+  tripNumber: z.string(),
+  tripSequenceNumber: z.number(),
+  vehicle: z.object({
+    id: z.string(),
+    registrationNumber: z.string(),
+    modelName: z.string(),
+    tempType: VehicleTemperatureTypeSchema,
+  }),
+  bay: z.string(),
+  departureTime: z.string().nullable(),
+  departureFormatted: z.string(),
+  totalItemsCount: z.number(),
+  itemIndex: z.number(),
+  selectedItem: LoadingIssueContextItemSchema,
+  availableItems: z.array(
+    z.object({
+      id: z.string(),
+      productName: z.string(),
+      sku: z.string(),
+      orderNumber: z.string(),
+      outletName: z.string(),
+    })
+  ),
+});

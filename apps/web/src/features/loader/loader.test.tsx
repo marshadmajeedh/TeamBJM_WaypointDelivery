@@ -16,11 +16,14 @@ import { LoaderDashboard } from './LoaderDashboard';
 import { VehicleLoadingDetails } from './VehicleLoadingDetails';
 import { LoadingSequence } from './LoadingSequence';
 import { LoadingChecklist } from './LoadingChecklist';
+import { LoadingIssueReport } from './LoadingIssueReport';
 import type {
   LoadingTasksResponseData,
   VehicleLoadingDetails as VehicleLoadingDetailsType,
   LoadingSequenceResponse,
   LoadingChecklistResponse,
+  LoadingIssueContextResponse,
+  LoadingIssueResponse,
 } from '@waypoint/shared';
 
 const queryClient = new QueryClient({
@@ -337,6 +340,14 @@ function renderLoaderApp(initialRoute: string) {
               element={
                 <ProtectedRoute allowedRoles={[UserRole.LOADER]}>
                   <LoadingChecklist />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/loader/tasks/:tripId/issues/new"
+              element={
+                <ProtectedRoute allowedRoles={[UserRole.LOADER]}>
+                  <LoadingIssueReport />
                 </ProtectedRoute>
               }
             />
@@ -989,6 +1000,290 @@ describe('Loader Feature 2: Loading Sequence & Loading Checklist (LS-04 & LS-05)
     await waitFor(() => {
       expect(screen.getByText('Dispatcher Portal')).toBeDefined();
       expect(screen.queryByText('4. Loading Sequence')).toBeNull();
+    });
+  });
+});
+
+const mockIssueContextData: LoadingIssueContextResponse = {
+  tripId: 'trip-001',
+  tripNumber: 'TRIP-2026-001',
+  tripSequenceNumber: 1,
+  vehicle: {
+    id: 'veh-001',
+    registrationNumber: 'WP-CAD-8821',
+    modelName: 'Isuzu 4T Reefer',
+    tempType: VehicleTemperatureType.REEFER,
+  },
+  bay: 'Bay 04',
+  departureTime: '2026-10-01T05:45:00.000Z',
+  departureFormatted: 'Departs 05:45 AM',
+  totalItemsCount: 6,
+  itemIndex: 4,
+  selectedItem: {
+    id: 'item-001',
+    orderId: 'ord-1042',
+    orderNumber: 'ORD-1042',
+    outletName: 'Waypoint Fresh – Nugegoda',
+    outletCode: 'OUT-01',
+    sku: 'SKU-MLK-01',
+    productName: 'Highland Fresh Full Cream Milk (1L × 12 bottles)',
+    unit: 'Cartons',
+    tempRequirement: TemperatureRequirement.CHILLED,
+    tempLabel: 'Cold Chain 4°C',
+    expectedQuantity: 20,
+    stagedQuantity: 18,
+    shortageQuantity: 2,
+    unitWeightKg: 12,
+    totalWeightKg: 240,
+  },
+  availableItems: [
+    {
+      id: 'item-001',
+      productName: 'Highland Fresh Full Cream Milk (1L × 12 bottles)',
+      sku: 'SKU-MLK-01',
+      orderNumber: 'ORD-1042',
+      outletName: 'Waypoint Fresh – Nugegoda',
+    },
+  ],
+};
+
+describe('Loader Feature 3: LS-06 Report Loading Issue', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    sessionStorage.clear();
+    sessionStorage.setItem('waypoint_token', 'valid-loader-token');
+    sessionStorage.setItem(
+      'waypoint_user',
+      JSON.stringify({
+        id: 'loader-1',
+        email: 'loader@waypoint.local',
+        role: UserRole.LOADER,
+        name: 'D. Jayasuriya',
+      })
+    );
+  });
+
+  // 1. Renders LS-06 Report Loading Issue with trip and item context
+  it('1. renders LS-06 Report Loading Issue with trip and item context', async () => {
+    vi.spyOn(api, 'fetchLoadingIssueContext').mockResolvedValue(mockIssueContextData);
+
+    renderLoaderApp('/loader/tasks/trip-001/issues/new?itemId=item-001');
+
+    await waitFor(() => {
+      expect(screen.getByText('6. Report Loading Issue')).toBeDefined();
+    });
+
+    expect(screen.getByText('DOCK DISCREPANCY')).toBeDefined();
+    expect(screen.getByText('Step 4 of 6 items')).toBeDefined();
+    expect(screen.getByText('WP-CAD-8821 (Isuzu 4T Reefer)')).toBeDefined();
+    expect(screen.getByText('Staging Bay 04')).toBeDefined();
+    expect(screen.getByText('ORD-1042')).toBeDefined();
+    expect(screen.getByText('Cold Chain 4°C')).toBeDefined();
+    expect(screen.getByText('Waypoint Fresh – Nugegoda')).toBeDefined();
+    expect(screen.getByText(/Highland Fresh Full Cream Milk/i)).toBeDefined();
+    expect(screen.getByText('20 cartons (240 kg)')).toBeDefined();
+  });
+
+  // 2. Selects different primary issue types
+  it('2. allows selecting different primary issue types', async () => {
+    vi.spyOn(api, 'fetchLoadingIssueContext').mockResolvedValue(mockIssueContextData);
+
+    renderLoaderApp('/loader/tasks/trip-001/issues/new?itemId=item-001');
+
+    await waitFor(() => {
+      expect(screen.getByText('Primary Issue Type')).toBeDefined();
+    });
+
+    expect(screen.getByText('Missing / Shortage')).toBeDefined();
+    expect(screen.getByText('Damaged Packaging')).toBeDefined();
+    expect(screen.getByText('Temperature Violation')).toBeDefined();
+    expect(screen.getByText('Incorrect SKU')).toBeDefined();
+
+    // Select Damaged Packaging
+    const damagedCard = screen.getByText('Damaged Packaging');
+    fireEvent.click(damagedCard);
+    expect(damagedCard).toBeDefined();
+  });
+
+  // 3. Updates physically available quantity via stepper and recalculates net discrepancy
+  it('3. updates physically available quantity via stepper and recalculates net discrepancy', async () => {
+    vi.spyOn(api, 'fetchLoadingIssueContext').mockResolvedValue(mockIssueContextData);
+
+    renderLoaderApp('/loader/tasks/trip-001/issues/new?itemId=item-001');
+
+    await waitFor(() => {
+      expect(screen.getByText('Discrepancy Breakdown')).toBeDefined();
+    });
+
+    expect(screen.getByText('-2 cartons (24 kg)')).toBeDefined();
+
+    // Click '-' button to reduce available quantity to 17
+    const decBtn = screen.getByLabelText('Decrease physically available quantity');
+    fireEvent.click(decBtn);
+
+    expect(screen.getByText('-3 cartons (36 kg)')).toBeDefined();
+
+    // Click '+' button to increase available quantity back to 18
+    const incBtn = screen.getByLabelText('Increase physically available quantity');
+    fireEvent.click(incBtn);
+
+    expect(screen.getByText('-2 cartons (24 kg)')).toBeDefined();
+  });
+
+  // 4. Displays photo evidence and dispatch review required card
+  it('4. displays photo evidence card and dispatch review required card', async () => {
+    vi.spyOn(api, 'fetchLoadingIssueContext').mockResolvedValue(mockIssueContextData);
+
+    renderLoaderApp('/loader/tasks/trip-001/issues/new?itemId=item-001');
+
+    await waitFor(() => {
+      expect(screen.getByText('Photo Evidence')).toBeDefined();
+    });
+
+    expect(screen.getByText('1 attached (Simulated)')).toBeDefined();
+    expect(screen.getByText('pallet_bay04_shortage.jpg')).toBeDefined();
+    expect(screen.getByText('DISPATCH REVIEW REQUIRED')).toBeDefined();
+    expect(
+      screen.getByText(
+        /The reported issue has been recorded and must be reviewed before the vehicle is cleared for dispatch/i
+      )
+    ).toBeDefined();
+  });
+
+  // 5. Validates notes field requiring minimum length
+  it('5. validates notes field requiring minimum 5 characters', async () => {
+    vi.spyOn(api, 'fetchLoadingIssueContext').mockResolvedValue(mockIssueContextData);
+
+    renderLoaderApp('/loader/tasks/trip-001/issues/new?itemId=item-001');
+
+    await waitFor(() => {
+      expect(screen.getByText('Submit Issue to Dispatcher →')).toBeDefined();
+    });
+
+    const textarea = screen.getByLabelText('Dock loader notes');
+    fireEvent.change(textarea, { target: { value: 'abc' } });
+
+    const submitBtn = screen.getByText('Submit Issue to Dispatcher →');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Physical explanation is mandatory and must contain at least 5 characters/i)).toBeDefined();
+    });
+  });
+
+  // 6. Successfully submits issue and renders confirmation modal
+  it('6. successfully submits issue and renders confirmation modal', async () => {
+    vi.spyOn(api, 'fetchLoadingIssueContext').mockResolvedValue(mockIssueContextData);
+    const createSpy = vi.spyOn(api, 'createLoadingIssue').mockResolvedValue({
+      id: 'issue-123',
+      tripId: 'trip-001',
+      orderItemId: 'item-001',
+      issueType: 'MISSING',
+      description: 'Only 18 cartons staged from cold vault #2.',
+      reportedAt: new Date().toISOString(),
+      resolved: false,
+      loadingStatus: LoadingStatus.ISSUE_REPORTED,
+    });
+
+    renderLoaderApp('/loader/tasks/trip-001/issues/new?itemId=item-001');
+
+    await waitFor(() => {
+      expect(screen.getByText('Submit Issue to Dispatcher →')).toBeDefined();
+    });
+
+    const submitBtn = screen.getByText('Submit Issue to Dispatcher →');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(createSpy).toHaveBeenCalledWith(
+        'trip-001',
+        expect.objectContaining({
+          itemId: 'item-001',
+          type: 'MISSING',
+          quantity: 2,
+        })
+      );
+      expect(screen.getByText('Issue Recorded for Dispatch Review')).toBeDefined();
+      expect(screen.getByText('ISSUE_REPORTED')).toBeDefined();
+    });
+  });
+
+  // 7. Disables submit button during submission to prevent duplicates
+  it('7. disables submit button during pending submission to prevent duplicates', async () => {
+    vi.spyOn(api, 'fetchLoadingIssueContext').mockResolvedValue(mockIssueContextData);
+    let resolveSubmit: (val: LoadingIssueResponse) => void = () => {};
+    vi.spyOn(api, 'createLoadingIssue').mockReturnValue(
+      new Promise((res) => {
+        resolveSubmit = res;
+      })
+    );
+
+    renderLoaderApp('/loader/tasks/trip-001/issues/new?itemId=item-001');
+
+    await waitFor(() => {
+      expect(screen.getByText('Submit Issue to Dispatcher →')).toBeDefined();
+    });
+
+    const submitBtn = screen.getByText('Submit Issue to Dispatcher →');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Submitting Issue for Dispatch Review...')).toBeDefined();
+      expect((screen.getByRole('button', { name: /submitting issue/i }) as HTMLButtonElement).disabled).toBe(true);
+    });
+
+    // Cleanup pending promise and await resolution
+    resolveSubmit({
+      id: 'issue-123',
+      tripId: 'trip-001',
+      orderItemId: 'item-001',
+      issueType: 'MISSING',
+      description: 'Done',
+      reportedAt: new Date().toISOString(),
+      resolved: false,
+      loadingStatus: LoadingStatus.ISSUE_REPORTED,
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Issue Recorded for Dispatch Review')).toBeDefined();
+    });
+  });
+
+  // 8. Displays error banner when submission fails
+  it('8. displays error banner when submission fails', async () => {
+    vi.spyOn(api, 'fetchLoadingIssueContext').mockResolvedValue(mockIssueContextData);
+    vi.spyOn(api, 'createLoadingIssue').mockRejectedValue(new Error('Dock terminal network timeout'));
+
+    renderLoaderApp('/loader/tasks/trip-001/issues/new?itemId=item-001');
+
+    await waitFor(() => {
+      expect(screen.getByText('Submit Issue to Dispatcher →')).toBeDefined();
+    });
+
+    const submitBtn = screen.getByText('Submit Issue to Dispatcher →');
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText('Dock terminal network timeout')).toBeDefined();
+    });
+  });
+
+  // 9. Blocks non-loader role from accessing LS-06 route
+  it('9. blocks non-loader role from accessing LS-06 route', async () => {
+    sessionStorage.setItem(
+      'waypoint_user',
+      JSON.stringify({
+        id: 'dispatcher-1',
+        email: 'dispatcher@waypoint.local',
+        role: UserRole.DISPATCHER,
+      })
+    );
+
+    renderLoaderApp('/loader/tasks/trip-001/issues/new?itemId=item-001');
+
+    await waitFor(() => {
+      expect(screen.getByText('Dispatcher Portal')).toBeDefined();
+      expect(screen.queryByText('6. Report Loading Issue')).toBeNull();
     });
   });
 });

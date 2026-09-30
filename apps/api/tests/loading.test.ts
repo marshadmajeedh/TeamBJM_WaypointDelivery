@@ -656,4 +656,285 @@ describe('Loader Module API Endpoints (LS-02 & LS-03)', () => {
       expect(rawCheck).not.toContain('jwt');
     });
   });
+
+  describe('Loader Feature 3: LS-06 Report Loading Issue', () => {
+    const testItemId = 'item-1';
+
+    it('1. rejects unauthenticated issue submission with 401', async () => {
+      const response = await request(app)
+        .post(`/api/loading/tasks/${mockTripId}/issues`)
+        .send({
+          itemId: testItemId,
+          type: 'MISSING',
+          quantity: 2,
+          description: 'Only 18 cartons staged from cold vault #2.',
+        });
+
+      expect(response.status).toBe(401);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('UNAUTHORIZED');
+    });
+
+    it('2. rejects non-loader role from issue submission with 403', async () => {
+      const response = await request(app)
+        .post(`/api/loading/tasks/${mockTripId}/issues`)
+        .set('Authorization', `Bearer ${dispatcherToken}`)
+        .send({
+          itemId: testItemId,
+          type: 'MISSING',
+          quantity: 2,
+          description: 'Only 18 cartons staged from cold vault #2.',
+        });
+
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('3. rejects loader without depotId with 403 LOADER_DEPOT_NOT_ASSIGNED', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: null,
+      } as unknown as User);
+
+      const response = await request(app)
+        .post(`/api/loading/tasks/${mockTripId}/issues`)
+        .set('Authorization', `Bearer ${loaderToken}`)
+        .send({
+          itemId: testItemId,
+          type: 'MISSING',
+          quantity: 2,
+          description: 'Only 18 cartons staged from cold vault #2.',
+        });
+
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('LOADER_DEPOT_NOT_ASSIGNED');
+    });
+
+    it('4. rejects cross-depot issue submission with 403 FORBIDDEN', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-kandy',
+      } as unknown as User);
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const response = await request(app)
+        .post(`/api/loading/tasks/${mockTripId}/issues`)
+        .set('Authorization', `Bearer ${loaderToken}`)
+        .send({
+          itemId: testItemId,
+          type: 'MISSING',
+          quantity: 2,
+          description: 'Only 18 cartons staged from cold vault #2.',
+        });
+
+      expect(response.status).toBe(403);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('FORBIDDEN');
+    });
+
+    it('5. returns valid issue reporting context for trip and item', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const response = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/issue-context?itemId=${testItemId}`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.selectedItem.id).toBe(testItemId);
+      expect(response.body.data.selectedItem.expectedQuantity).toBe(20);
+      expect(response.body.data.vehicle.registrationNumber).toBe('WP-CAD-8821');
+      expect(response.body.data.bay).toBe('BAY 04');
+    });
+
+    it('6. rejects issue submission with invalid or non-existent item id', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const response = await request(app)
+        .post(`/api/loading/tasks/${mockTripId}/issues`)
+        .set('Authorization', `Bearer ${loaderToken}`)
+        .send({
+          itemId: 'non-existent-item-id',
+          type: 'MISSING',
+          quantity: 2,
+          description: 'Only 18 cartons staged from cold vault #2.',
+        });
+
+      expect(response.status).toBe(404);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('NOT_FOUND');
+    });
+
+    it('7. rejects issue submission with invalid quantity (negative or zero)', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      const response = await request(app)
+        .post(`/api/loading/tasks/${mockTripId}/issues`)
+        .set('Authorization', `Bearer ${loaderToken}`)
+        .send({
+          itemId: testItemId,
+          type: 'MISSING',
+          quantity: 0,
+          description: 'Zero quantity is invalid.',
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('8. rejects issue submission with quantity exceeding manifest expected amount', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const response = await request(app)
+        .post(`/api/loading/tasks/${mockTripId}/issues`)
+        .set('Authorization', `Bearer ${loaderToken}`)
+        .send({
+          itemId: testItemId,
+          type: 'MISSING',
+          quantity: 999,
+          description: 'Excessive shortage quantity reported.',
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.success).toBe(false);
+      expect(response.body.error.code).toBe('INVALID_QUANTITY');
+    });
+
+    it('9. persists valid loading issue and transitions trip loading status to ISSUE_REPORTED', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const mockCreatedIssue = {
+        id: 'issue-uuid-1',
+        loadingRecordId: 'rec-1',
+        orderItemId: testItemId,
+        issueType: 'MISSING',
+        description: 'Only 8 cartons staged from cold vault #2.',
+        resolved: false,
+        reportedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      vi.spyOn(prisma.loadingIssue, 'create').mockResolvedValue(mockCreatedIssue as unknown as Awaited<ReturnType<typeof prisma.loadingIssue.create>>);
+      vi.spyOn(prisma.loadingRecord, 'update').mockResolvedValue({
+        id: 'rec-1',
+        status: LoadingStatus.ISSUE_REPORTED,
+      } as unknown as Awaited<ReturnType<typeof prisma.loadingRecord.update>>);
+
+      const response = await request(app)
+        .post(`/api/loading/tasks/${mockTripId}/issues`)
+        .set('Authorization', `Bearer ${loaderToken}`)
+        .send({
+          itemId: testItemId,
+          type: 'MISSING',
+          quantity: 2,
+          description: 'Only 8 cartons staged from cold vault #2.',
+          expectedQuantity: 10,
+          actualQuantity: 8,
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.id).toBe('issue-uuid-1');
+      expect(response.body.data.orderItemId).toBe(testItemId);
+      expect(response.body.data.issueType).toBe('MISSING');
+      expect(response.body.data.loadingStatus).toBe(LoadingStatus.ISSUE_REPORTED);
+    });
+
+    it('10. verifies LoadingIssue persistence is reflected in subsequent checklist fetch', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      const tripWithIssue = {
+        ...mockTrip,
+        loadingRecords: [
+          {
+            id: 'rec-1',
+            status: LoadingStatus.ISSUE_REPORTED,
+            loadingIssues: [
+              {
+                id: 'issue-uuid-1',
+                orderItemId: testItemId,
+                issueType: 'MISSING',
+                description: 'Shortage reported: 2 cartons missing.',
+                resolved: false,
+              },
+            ],
+            notes: JSON.stringify({
+              bay: 'Bay 04',
+              items: {
+                [testItemId]: {
+                  requiredQuantity: 10,
+                  stagedQuantity: 8,
+                  loadedQuantity: 8,
+                  status: 'DISCREPANCY',
+                },
+              },
+            }),
+          },
+        ],
+      };
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(tripWithIssue as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const checklistRes = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/checklist`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+
+      expect(checklistRes.status).toBe(200);
+      const affectedItem = checklistRes.body.data.stops
+        .flatMap((s: { items: Array<{ id: string; status: string }> }) => s.items)
+        .find((i: { id: string }) => i.id === testItemId);
+
+      expect(affectedItem.status).toBe('DISCREPANCY');
+      expect(checklistRes.body.data.overallProgress.shortageAlertCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('11. ensures issue responses do not expose sensitive driver or dispatcher secrets', async () => {
+      vi.spyOn(prisma.user, 'findUnique').mockResolvedValue({
+        id: mockLoaderUserId,
+        depotId: 'depot-peliyagoda',
+      } as unknown as User);
+
+      vi.spyOn(prisma.trip, 'findUnique').mockResolvedValue(mockTrip as unknown as Awaited<ReturnType<typeof prisma.trip.findUnique>>);
+
+      const contextRes = await request(app)
+        .get(`/api/loading/tasks/${mockTripId}/issue-context?itemId=${testItemId}`)
+        .set('Authorization', `Bearer ${loaderToken}`);
+
+      const raw = JSON.stringify(contextRes.body);
+      expect(raw).not.toContain('password');
+      expect(raw).not.toContain('hash');
+      expect(raw).not.toContain('jwt');
+    });
+  });
 });

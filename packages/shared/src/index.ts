@@ -45,6 +45,11 @@ export {
   LoadingChecklistResponseSchema,
   UpdateLoadingItemRequestSchema,
   UpdateLoadingItemResponseSchema,
+  LoadingIssueTypeSchema,
+  CreateLoadingIssueRequestSchema,
+  LoadingIssueResponseSchema,
+  LoadingIssueContextItemSchema,
+  LoadingIssueContextResponseSchema,
 } from './schemas';
 
 export * from './types';

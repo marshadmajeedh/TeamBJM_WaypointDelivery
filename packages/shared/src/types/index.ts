@@ -32,6 +32,11 @@ import {
   LoadingChecklistResponseSchema,
   UpdateLoadingItemRequestSchema,
   UpdateLoadingItemResponseSchema,
+  LoadingIssueTypeSchema,
+  CreateLoadingIssueRequestSchema,
+  LoadingIssueResponseSchema,
+  LoadingIssueContextItemSchema,
+  LoadingIssueContextResponseSchema,
 } from '../schemas';
 
 export type UserRoleType = `${UserRole}`;
@@ -84,3 +89,10 @@ export type LoadingChecklistResponse = z.infer<typeof LoadingChecklistResponseSc
 
 export type UpdateLoadingItemRequest = z.infer<typeof UpdateLoadingItemRequestSchema>;
 export type UpdateLoadingItemResponse = z.infer<typeof UpdateLoadingItemResponseSchema>;
+
+// Loader Feature 3 types (LS-06)
+export type LoadingIssueType = z.infer<typeof LoadingIssueTypeSchema>;
+export type CreateLoadingIssueRequest = z.infer<typeof CreateLoadingIssueRequestSchema>;
+export type LoadingIssueResponse = z.infer<typeof LoadingIssueResponseSchema>;
+export type LoadingIssueContextItem = z.infer<typeof LoadingIssueContextItemSchema>;
+export type LoadingIssueContextResponse = z.infer<typeof LoadingIssueContextResponseSchema>;
