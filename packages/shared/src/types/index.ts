@@ -15,6 +15,9 @@ import {
   HealthCheckResponseSchema,
   LoginRequestSchema,
   AuthUserSchema,
+  AuthenticatedUserSchema,
+  LoginResponseDataSchema,
+  TokenPayloadSchema,
 } from '../schemas';
 
 export type UserRoleType = `${UserRole}`;
@@ -38,8 +41,12 @@ export type ApiResponse<T> = ApiResponseSuccess<T> | ApiResponseError;
 export type HealthCheckResponse = z.infer<typeof HealthCheckResponseSchema>;
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
 export type AuthUser = z.infer<typeof AuthUserSchema>;
+export type AuthenticatedUser = z.infer<typeof AuthenticatedUserSchema>;
+export type LoginResponseData = z.infer<typeof LoginResponseDataSchema>;
+export type LoginResponse = ApiResponseSuccess<LoginResponseData>;
+export type TokenPayload = z.infer<typeof TokenPayloadSchema>;
 
 export interface AuthSession {
-  user: AuthUser;
+  user: AuthenticatedUser;
   token: string;
 }

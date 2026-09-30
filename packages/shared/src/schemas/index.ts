@@ -49,9 +49,27 @@ export const LoginRequestSchema = z.object({
 });
 
 export const AuthUserSchema = z.object({
-  id: z.string().uuid(),
+  id: z.string(),
   email: z.string().email(),
-  name: z.string(),
+  name: z.string().optional(),
   role: UserRoleSchema,
-  depotId: z.string().uuid().nullable().optional(),
+  depotId: z.string().nullable().optional(),
+});
+
+export const AuthenticatedUserSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  role: UserRoleSchema,
+  name: z.string().optional(),
+  depotId: z.string().nullable().optional(),
+});
+
+export const LoginResponseDataSchema = z.object({
+  token: z.string(),
+  user: AuthenticatedUserSchema,
+});
+
+export const TokenPayloadSchema = z.object({
+  sub: z.string(),
+  role: UserRoleSchema,
 });

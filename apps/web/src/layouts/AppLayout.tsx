@@ -1,8 +1,17 @@
 import React from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
-import { Compass, ShieldCheck } from 'lucide-react';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Compass, ShieldCheck, LogOut, User } from 'lucide-react';
+import { useAuth } from '../features/auth/AuthContext';
 
 export const AppLayout: React.FC = () => {
+  const { isAuthenticated, user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
       {/* Top Header */}
@@ -82,18 +91,40 @@ export const AppLayout: React.FC = () => {
             >
               Driver
             </NavLink>
-            <NavLink
-              to="/login"
-              className={({ isActive }) =>
-                `px-3 py-1.5 rounded-md transition-colors border border-slate-700 ${
-                  isActive
-                    ? 'bg-slate-800 text-white'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`
-              }
-            >
-              Login
-            </NavLink>
+
+            {isAuthenticated && user ? (
+              <div className="flex items-center space-x-2 border-l border-slate-800 pl-2 sm:pl-3">
+                <div className="text-right hidden sm:block">
+                  <div className="text-xs font-medium text-white truncate max-w-[130px] flex items-center space-x-1">
+                    <User className="w-3 h-3 text-slate-400 inline" />
+                    <span>{user.name || user.email.split('@')[0]}</span>
+                  </div>
+                  <div className="text-[10px] font-mono text-blue-400 font-semibold">{user.role}</div>
+                </div>
+                <button
+                  id="header-logout-button"
+                  onClick={handleLogout}
+                  title="Sign Out"
+                  className="px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors flex items-center space-x-1 border border-slate-700/50"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Sign Out</span>
+                </button>
+              </div>
+            ) : (
+              <NavLink
+                to="/login"
+                className={({ isActive }) =>
+                  `px-3 py-1.5 rounded-md transition-colors border border-slate-700 ${
+                    isActive
+                      ? 'bg-slate-800 text-white'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`
+                }
+              >
+                Login
+              </NavLink>
+            )}
           </nav>
         </div>
       </header>

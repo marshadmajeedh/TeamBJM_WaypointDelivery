@@ -19,6 +19,7 @@
 | **Proof of Delivery** | DRIVER | `deliveries` | NOT STARTED | Signature, recipient name, and photo capture |
 | **Offline Delivery** | DRIVER | `sync` / `offline` | NOT STARTED | Local IndexedDB persistence & queue replay |
 | **Confirm Receipt** | STORE_MANAGER | `receipts` | NOT STARTED | Store arrival sign-off and issue reporting |
+| **Authentication & Role Authorization** | ALL ROLES | `auth` | IMPLEMENTED | Shared JWT + bcrypt foundation, role middleware, session storage, protected routing |
 
 *Allowed Statuses: `NOT STARTED` | `IN PROGRESS` | `IMPLEMENTED` | `VERIFIED`*
 
