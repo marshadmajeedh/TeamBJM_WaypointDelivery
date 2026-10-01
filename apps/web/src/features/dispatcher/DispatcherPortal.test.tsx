@@ -1,4 +1,4 @@
-import {fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {act,fireEvent,render,screen,waitFor} from '@testing-library/react';
 import {beforeEach,describe,expect,it,vi} from 'vitest';
 import {DispatcherPortal} from './DispatcherPortal';
 import {dispatcherApi} from './api';
@@ -16,6 +16,18 @@ describe('DispatcherPortal',()=>{
     return {} as never;
   })});
   it('renders live dashboard metrics from the Dispatcher API',async()=>{render(<DispatcherPortal/>);await waitFor(()=>expect(screen.getByText('8')).toBeDefined());expect(screen.getAllByText('Confirmed Orders').length).toBeGreaterThan(0);});
+  it('automatically polls dashboard metrics and alerts every 30 seconds',async()=>{
+    vi.useFakeTimers();
+    try{
+      const initialDashboardCalls=mocked.mock.calls.filter(call=>call[0]==='/dashboard').length,initialAlertCalls=mocked.mock.calls.filter(call=>call[0]==='/alerts').length;
+      render(<DispatcherPortal/>);
+      await act(async()=>{await Promise.resolve()});
+      const dashboardCalls=()=>mocked.mock.calls.filter(call=>call[0]==='/dashboard').length,alertCalls=()=>mocked.mock.calls.filter(call=>call[0]==='/alerts').length;
+      expect(dashboardCalls()).toBe(initialDashboardCalls+1);expect(alertCalls()).toBe(initialAlertCalls+1);
+      await act(async()=>{await vi.advanceTimersByTimeAsync(30000)});
+      expect(dashboardCalls()).toBe(initialDashboardCalls+2);expect(alertCalls()).toBe(initialAlertCalls+2);
+    }finally{vi.useRealTimers()}
+  });
   it('shows operational alerts and routes the dispatcher to resolution',async()=>{
     mocked.mockImplementation(async(path:string)=>{
       if(path==='/dashboard')return {confirmed:8,planned:2,deferred:1,activeTrips:3,availableVehicles:6} as never;
