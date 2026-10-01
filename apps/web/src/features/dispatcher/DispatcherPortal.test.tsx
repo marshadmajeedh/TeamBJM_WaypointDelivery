@@ -84,7 +84,7 @@ describe('DispatcherPortal',()=>{
     mocked.mockImplementation(async(path:string)=>{
       if(path==='/dashboard')return {confirmed:1,planned:0,deferred:0,activeTrips:0,availableVehicles:2} as never;
       if(path==='/orders')return [planningOrder] as never;
-      if(path==='/plans/preview')return {results:[{orderId:'o1',status:'SERVED',assignedVehicleId:'v1',tripSequence:1}],vehicles} as never;
+      if(path==='/plans/preview')return {results:[{orderId:'o1',status:'SERVED',assignedVehicleId:'v1',tripSequence:1}],vehicles,routes:[{vehicleId:'v1',tripSequence:1,estimatedDistanceKm:12.4,stops:[{orderId:'o1',sequence:1,distanceFromPreviousKm:12.4}]}]} as never;
       if(path==='/plans/validate-manual')return {results:[{orderId:'o1',status:'SERVED',assignedVehicleId:'v2',tripSequence:1}],vehicles} as never;
       return [] as never;
     });
@@ -93,6 +93,7 @@ describe('DispatcherPortal',()=>{
     await waitFor(()=>expect(screen.getByText('ORD-1042')).toBeDefined());
     fireEvent.click(screen.getByRole('button',{name:'Validate & Review 1'}));
     await waitFor(()=>expect(screen.getByText('Allocation Review')).toBeDefined());
+    expect(screen.getByText(/Recommended stop sequence · 12.4 km estimated/)).toBeDefined();
     fireEvent.change(screen.getByLabelText('Vehicle for ORD-1042'),{target:{value:'v2'}});
     await waitFor(()=>expect(mocked).toHaveBeenCalledWith('/plans/validate-manual',expect.objectContaining({method:'POST'})));
     expect(await screen.findByText(/VEH015 · Trip 1/)).toBeDefined();

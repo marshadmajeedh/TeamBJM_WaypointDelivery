@@ -12,6 +12,8 @@ export interface PlanningOrder {
   temperature: TemperatureRequirement;
   vanOnly: boolean;
   priority: number;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface PlanningVehicle {
