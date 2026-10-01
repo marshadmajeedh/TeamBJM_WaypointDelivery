@@ -59,5 +59,33 @@ describe('DispatcherPortal',()=>{
     await waitFor(()=>expect(mocked).toHaveBeenCalledWith('/plans/validate-manual',expect.objectContaining({method:'POST'})));
     expect(await screen.findByText(/VEH015 · Trip 1/)).toBeDefined();
   });
+  it('shows real vehicle weight, volume and fuel utilization',async()=>{
+    const vehicle={id:'v1',registration:'VEH014',depot:'Peliyagoda',type:'VAN',maxWeightKg:1000,maxVolumeM3:10,refrigerated:true,weeklyFuelQuotaL:200,fuelUsedThisWeekL:100,available:true,tripsToday:1};
+    mocked.mockImplementation(async(path:string)=>{
+      if(path==='/dashboard')return {confirmed:0,planned:1,deferred:0,activeTrips:1,availableVehicles:1} as never;
+      if(path==='/vehicles')return [vehicle] as never;
+      if(path==='/vehicles/v1')return {...vehicle,status:'AVAILABLE',usedWeightKg:500,usedVolumeM3:4,assignedStops:[],route:null} as never;
+      return [] as never;
+    });
+    render(<DispatcherPortal/>);
+    fireEvent.click(screen.getByRole('button',{name:'Fleet & Vehicles'}));
+    fireEvent.click(await screen.findByRole('button',{name:'View Capacity Details'}));
+    await waitFor(()=>expect(screen.getByLabelText('Weight utilization')).toHaveProperty('value',50));
+    expect(screen.getByLabelText('Volume utilization')).toHaveProperty('value',40);
+    expect(screen.getByLabelText('Fuel quota utilization')).toHaveProperty('value',50);
+  });
+  it('visualizes live completed-stop progress and the trip timeline',async()=>{
+    mocked.mockImplementation(async(path:string)=>{
+      if(path==='/dashboard')return {confirmed:0,planned:0,deferred:0,activeTrips:1,availableVehicles:1} as never;
+      if(path==='/trips')return [{id:'t1',reference:'TRIP-014',tripNumber:1,status:'IN_TRANSIT',driver:'Driver One',coldChain:'Normal',issues:[],vehicle:{registration:'VEH014',refrigerated:true},stops:[{id:'s1',sequence:1,eta:'2026-10-02T08:00:00Z',status:'DELIVERED',order:{reference:'ORD-1',outletName:'Outlet One'}},{id:'s2',sequence:2,eta:'2026-10-02T10:00:00Z',status:'IN_TRANSIT',order:{reference:'ORD-2',outletName:'Outlet Two'}}]}] as never;
+      return [] as never;
+    });
+    render(<DispatcherPortal/>);
+    fireEvent.click(screen.getByRole('button',{name:'Active Deliveries'}));
+    await waitFor(()=>expect(screen.getByLabelText('TRIP-014 progress')).toHaveProperty('value',50));
+    fireEvent.click(screen.getByRole('button',{name:/TRIP-014/}));
+    expect(screen.getByLabelText('Trip status timeline')).toBeDefined();
+    expect(screen.getByText('Outlet One').closest('span')?.className).toContain('complete');
+  });
   it('provides every required dispatcher navigation area',async()=>{render(<DispatcherPortal/>);await waitFor(()=>expect(screen.getByText('8')).toBeDefined());['Dashboard','Confirmed Orders','Daily Planning','Fleet & Vehicles','Active Deliveries','Deferred Orders'].forEach(label=>expect(screen.getByRole('button',{name:label})).toBeDefined());});
 });
