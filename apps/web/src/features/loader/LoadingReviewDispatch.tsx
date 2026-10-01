@@ -168,7 +168,7 @@ export const LoadingReviewDispatch: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Hero Card (Gate Clearance Overview) */}
+      {/* Main Hero Card (Dispatch Readiness Overview) */}
       <div style={styles.heroCard}>
         <div style={styles.heroTopRow}>
           {isReadyForDispatch ? (
@@ -219,291 +219,294 @@ export const LoadingReviewDispatch: React.FC = () => {
       )}
 
       {/* Responsive Two-Column Grid on Desktop */}
-      <div style={styles.reviewContentGrid}>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Column: Vehicle & Payload Specs */}
-        <div style={styles.leftColumn}>
+        <div className="lg:col-span-5 space-y-4">
           {/* Vehicle & Cargo Manifest Fill Card */}
           <div style={styles.contextCard}>
-        <div style={styles.vehicleHeaderRow}>
-          <div style={styles.vehicleInfoGroup}>
-            <div style={styles.truckIconCircle}>🚚</div>
-            <div>
-              <div style={styles.vehicleNameRow}>
-                <h3 style={styles.vehicleModelName}>
-                  {vehicle.registrationNumber} • {vehicle.modelName}
-                </h3>
-                <span style={styles.plateBadge}>{vehicle.registrationNumber}</span>
-              </div>
-              <p style={styles.vehicleMetaSubtext}>
-                🧑‍✈️ Driver: {driver?.name || 'Sunimal Silva'} • 🚪 {bay}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div style={styles.cardDivider} />
-
-        {/* Cargo Manifest Fill Progress */}
-        <div style={styles.manifestFillSection}>
-          <div style={styles.manifestFillHeader}>
-            <span style={styles.manifestFillTitle}>
-              📦 Cargo Manifest Fill
-            </span>
-            <span style={styles.manifestFillStats}>
-              <strong>{progress.loadedItems} / {progress.totalItems} Items Loaded</strong> ({progress.percentage}%)
-            </span>
-          </div>
-          <div style={styles.progressBarTrack}>
-            <div
-              style={{
-                ...styles.progressBarFill,
-                width: `${Math.min(100, progress.percentage)}%`,
-                backgroundColor: isDispatchBlocked ? '#ef4444' : progress.percentage >= 100 ? '#10b981' : '#0284c7',
-              }}
-            />
-          </div>
-        </div>
-
-        {/* Blocked Discrepancy Exception Card */}
-        {isDispatchBlocked && (
-          <div style={styles.discrepancyExceptionCard}>
-            <div style={styles.exceptionTopRow}>
-              <span style={styles.exceptionWarningIcon}>⚠️</span>
-              <div>
-                <h4 style={styles.exceptionTitle}>
-                  {unresolvedIssueCount} unresolved loading discrepancy requires review before dispatch.
-                </h4>
-                <p style={styles.exceptionBody}>
-                  {unresolvedIssues[0]?.orderNumber || 'ORD-1042'}: {unresolvedIssues[0]?.description || 'Shortage reported from cold vault intake.'}
-                </p>
-                <p style={styles.exceptionInstruction}>
-                  Dispatcher review required before vehicle clearance can be authorized.
-                </p>
+            <div style={styles.vehicleHeaderRow}>
+              <div style={styles.vehicleInfoGroup}>
+                <div style={styles.truckIconCircle}>🚚</div>
+                <div>
+                  <div style={styles.vehicleNameRow}>
+                    <h3 style={styles.vehicleModelName}>
+                      {vehicle.registrationNumber} • {vehicle.modelName}
+                    </h3>
+                    <span style={styles.plateBadge}>{vehicle.registrationNumber}</span>
+                  </div>
+                  <p style={styles.vehicleMetaSubtext}>
+                    🧑‍✈️ Driver: {driver?.name || 'Sunimal Silva'} • 🚪 {bay}
+                  </p>
+                </div>
               </div>
             </div>
-            <button
-              style={styles.exceptionNavButton}
-              onClick={() => navigate(`/loader/tasks/${tripId}/checklist`)}
-            >
-              Return to Checklist to Review Discrepancy →
-            </button>
-          </div>
-        )}
 
-        {/* Incomplete Loading Alert Card */}
-        {isIncompleteLoading && (
-          <div style={styles.incompleteAlertCard}>
-            <div style={styles.exceptionTopRow}>
-              <span style={styles.amberWarningIcon}>⚠️</span>
-              <div>
-                <h4 style={styles.incompleteTitle}>
-                  Checklist Incomplete ({progress.loadedItems}/{progress.totalItems} Units)
-                </h4>
-                <p style={styles.incompleteBody}>
-                  Remaining items must be physically verified and loaded onto {vehicle.registrationNumber} prior to gate sign-off.
-                </p>
+            <div style={styles.cardDivider} />
+
+            {/* Cargo Manifest Fill Progress */}
+            <div style={styles.manifestFillSection}>
+              <div style={styles.manifestFillHeader}>
+                <span style={styles.manifestFillTitle}>
+                  📦 Cargo Manifest Fill
+                </span>
+                <span style={styles.manifestFillStats}>
+                  <strong>{progress.loadedItems} / {progress.totalItems} Items Loaded</strong> ({progress.percentage}%)
+                </span>
+              </div>
+              <div style={styles.progressBarTrack}>
+                <div
+                  style={{
+                    ...styles.progressBarFill,
+                    width: `${Math.min(100, progress.percentage)}%`,
+                    backgroundColor: isDispatchBlocked ? '#ef4444' : progress.percentage >= 100 ? '#10b981' : '#0284c7',
+                  }}
+                />
               </div>
             </div>
-            <button
-              style={styles.incompleteNavButton}
-              onClick={() => navigate(`/loader/tasks/${tripId}/checklist`)}
-            >
-              Return to Checklist ({progress.loadedItems}/{progress.totalItems}) →
-            </button>
-          </div>
-        )}
-      </div>
 
-      {/* Section: Payload & Cold-Chain Telematics */}
-      <div style={styles.sectionHeaderRow}>
-        <h3 style={styles.sectionTitle}>Payload & Temperature Profile</h3>
-        <span style={styles.sensorPill}>
-          <span style={styles.blueDot} /> Vehicle Specs
-        </span>
-      </div>
+            {/* Blocked Discrepancy Exception Card */}
+            {isDispatchBlocked && (
+              <div style={styles.discrepancyExceptionCard}>
+                <div style={styles.exceptionTopRow}>
+                  <span style={styles.exceptionWarningIcon}>⚠️</span>
+                  <div>
+                    <h4 style={styles.exceptionTitle}>
+                      {unresolvedIssueCount} unresolved loading discrepancy requires review before dispatch.
+                    </h4>
+                    <p style={styles.exceptionBody}>
+                      {unresolvedIssues[0]?.orderNumber || 'ORD-1042'}: {unresolvedIssues[0]?.description || 'Shortage reported from cold vault intake.'}
+                    </p>
+                    <p style={styles.exceptionInstruction}>
+                      Dispatcher review required before vehicle clearance can be authorized.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  style={styles.exceptionNavButton}
+                  onClick={() => navigate(`/loader/tasks/${tripId}/checklist`)}
+                >
+                  Return to Checklist to Review Discrepancy →
+                </button>
+              </div>
+            )}
 
-      <div style={styles.telematicsGrid}>
-        {/* 1. Gross Payload Card */}
-        <div style={styles.telemetryCard}>
-          <div style={styles.telemetryTopRow}>
-            <span style={styles.telemetryLabel}>Gross Payload</span>
-            <span style={styles.telemetryIcon}>⚖️</span>
+            {/* Incomplete Loading Alert Card */}
+            {isIncompleteLoading && (
+              <div style={styles.incompleteAlertCard}>
+                <div style={styles.exceptionTopRow}>
+                  <span style={styles.amberWarningIcon}>⚠️</span>
+                  <div>
+                    <h4 style={styles.incompleteTitle}>
+                      Checklist Incomplete ({progress.loadedItems}/{progress.totalItems} Units)
+                    </h4>
+                    <p style={styles.incompleteBody}>
+                      Remaining items must be physically verified and loaded onto {vehicle.registrationNumber} prior to dispatch clearance sign-off.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  style={styles.incompleteNavButton}
+                  onClick={() => navigate(`/loader/tasks/${tripId}/checklist`)}
+                >
+                  Return to Checklist ({progress.loadedItems}/{progress.totalItems}) →
+                </button>
+              </div>
+            )}
           </div>
-          <div style={styles.telemetryValueRow}>
-            <span style={styles.telemetryValueNum}>
-              {capacities.usedWeightKg.toLocaleString()}
-            </span>
-            <span style={styles.telemetryUnit}>kg</span>
-          </div>
-          <span style={styles.telemetryLimit}>
-            Limit: {capacities.maxWeightKg.toLocaleString()} kg
-          </span>
-          <div style={styles.telemetryPillRow}>
-            <span style={{
-              ...styles.metricPill,
-              backgroundColor: capacities.isWeightCompliant ? '#eff6ff' : '#fee2e2',
-              color: capacities.isWeightCompliant ? '#0284c7' : '#dc2626',
-            }}>
-              {capacities.isWeightCompliant
-                ? `Compliant +${capacities.weightMarginKg} kg margin`
-                : 'Overweight Violation'}
-            </span>
-          </div>
-        </div>
 
-        {/* 2. Cubing Volume Card */}
-        <div style={styles.telemetryCard}>
-          <div style={styles.telemetryTopRow}>
-            <span style={styles.telemetryLabel}>Cubing Vol.</span>
-            <span style={styles.telemetryIcon}>📐</span>
-          </div>
-          <div style={styles.telemetryValueRow}>
-            <span style={styles.telemetryValueNum}>
-              {capacities.usedVolumeM3.toFixed(1)}
-            </span>
-            <span style={styles.telemetryUnit}>m³</span>
-          </div>
-          <span style={styles.telemetryLimit}>
-            Limit: {capacities.maxVolumeM3.toFixed(1)} m³
-          </span>
-          <div style={styles.telemetryPillRow}>
-            <span style={{
-              ...styles.metricPill,
-              backgroundColor: '#eff6ff',
-              color: '#0284c7',
-            }}>
-              Optimal +{capacities.freeVolumeM3.toFixed(1)} m³ free
+          {/* Section: Payload & Temperature Profile */}
+          <div style={styles.sectionHeaderRow}>
+            <h3 style={styles.sectionTitle}>Payload & Temperature Profile</h3>
+            <span style={styles.sensorPill}>
+              <span style={styles.blueDot} /> Vehicle Specs
             </span>
           </div>
-        </div>
 
-        {/* 3. Chambers / Temperature Card */}
-        <div style={styles.telemetryCard}>
-          <div style={styles.telemetryTopRow}>
-            <span style={styles.telemetryLabel}>Temperature Spec</span>
-            <span style={styles.telemetryIcon}>❄️</span>
-          </div>
-          <div style={styles.telemetryValueRow}>
-            <span style={styles.telemetryValueNum}>
-              {temperatureProfile.chamber1Temp}
-            </span>
-          </div>
-          <span style={styles.telemetryLimit}>
-            {temperatureProfile.chamber2Temp ? `Zone 2: ${temperatureProfile.chamber2Temp}` : 'Ambient Spec'}
-          </span>
-          <div style={styles.telemetryPillRow}>
-            <span style={{
-              ...styles.metricPill,
-              backgroundColor: '#ecfdf5',
-              color: '#059669',
-            }}>
-              ● {temperatureProfile.statusLabel}
-            </span>
-          </div>
-        </div>
-      </div>
+          <div style={styles.telematicsGrid}>
+            {/* 1. Gross Payload Card */}
+            <div style={styles.telemetryCard}>
+              <div style={styles.telemetryTopRow}>
+                <span style={styles.telemetryLabel}>Gross Payload</span>
+                <span style={styles.telemetryIcon}>⚖️</span>
+              </div>
+              <div style={styles.telemetryValueRow}>
+                <span style={styles.telemetryValueNum}>
+                  {capacities.usedWeightKg.toLocaleString()}
+                </span>
+                <span style={styles.telemetryUnit}>kg</span>
+              </div>
+              <span style={styles.telemetryLimit}>
+                Limit: {capacities.maxWeightKg.toLocaleString()} kg
+              </span>
+              <div style={styles.telemetryPillRow}>
+                <span style={{
+                  ...styles.metricPill,
+                  backgroundColor: capacities.isWeightCompliant ? '#eff6ff' : '#fee2e2',
+                  color: capacities.isWeightCompliant ? '#0284c7' : '#dc2626',
+                }}>
+                  {capacities.isWeightCompliant
+                    ? `Compliant +${capacities.weightMarginKg} kg margin`
+                    : 'Overweight Violation'}
+                </span>
+              </div>
+            </div>
 
+            {/* 2. Cubing Volume Card */}
+            <div style={styles.telemetryCard}>
+              <div style={styles.telemetryTopRow}>
+                <span style={styles.telemetryLabel}>Cubing Vol.</span>
+                <span style={styles.telemetryIcon}>📐</span>
+              </div>
+              <div style={styles.telemetryValueRow}>
+                <span style={styles.telemetryValueNum}>
+                  {capacities.usedVolumeM3.toFixed(1)}
+                </span>
+                <span style={styles.telemetryUnit}>m³</span>
+              </div>
+              <span style={styles.telemetryLimit}>
+                Limit: {capacities.maxVolumeM3.toFixed(1)} m³
+              </span>
+              <div style={styles.telemetryPillRow}>
+                <span style={{
+                  ...styles.metricPill,
+                  backgroundColor: '#eff6ff',
+                  color: '#0284c7',
+                }}>
+                  Optimal +{capacities.freeVolumeM3.toFixed(1)} m³ free
+                </span>
+              </div>
+            </div>
+
+            {/* 3. Chambers / Temperature Card */}
+            <div style={styles.telemetryCard}>
+              <div style={styles.telemetryTopRow}>
+                <span style={styles.telemetryLabel}>Temperature Spec</span>
+                <span style={styles.telemetryIcon}>❄️</span>
+              </div>
+              <div style={styles.telemetryValueRow}>
+                <span style={styles.telemetryValueNum}>
+                  {temperatureProfile.chamber1Temp}
+                </span>
+              </div>
+              <span style={styles.telemetryLimit}>
+                {temperatureProfile.chamber2Temp ? `Zone 2: ${temperatureProfile.chamber2Temp}` : 'Ambient Spec'}
+              </span>
+              <div style={styles.telemetryPillRow}>
+                <span style={{
+                  ...styles.metricPill,
+                  backgroundColor: '#ecfdf5',
+                  color: '#059669',
+                }}>
+                  ● {temperatureProfile.statusLabel}
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Right Column: Sequence, Checklist & Actions */}
-        <div style={styles.rightColumn}>
+        <div className="lg:col-span-7 space-y-4">
           {/* Section: Sequence Audit (Reverse Loaded) */}
           <div style={styles.sectionHeaderRow}>
             <h3 style={styles.sectionTitle}>Sequence Audit (Reverse Loaded)</h3>
-        <span style={styles.dropsPill}>{stops.length} Drops</span>
-      </div>
-
-      <div style={styles.stopsStack}>
-        {stops.map((stop) => (
-          <div key={stop.stopSequence} style={styles.stopCard}>
-            <div style={styles.stopNumberBadge}>
-              {stop.stopSequence}
-            </div>
-            <div style={styles.stopInfoCol}>
-              <h4 style={styles.stopTitle}>
-                Stop {stop.stopSequence}: {stop.outletName}
-              </h4>
-              <p style={styles.stopChamberText}>
-                {stop.chamberZone}
-              </p>
-            </div>
-            <span style={{
-              ...styles.stopStatusBadge,
-              backgroundColor: stop.hasDiscrepancy ? '#fee2e2' : '#dcfce7',
-              color: stop.hasDiscrepancy ? '#dc2626' : '#16a34a',
-            }}>
-              {stop.hasDiscrepancy ? `! ${stop.statusBadge}` : `✓ ${stop.statusBadge}`}
-            </span>
+            <span style={styles.dropsPill}>{stops.length} Drops</span>
           </div>
-        ))}
-      </div>
 
-      {/* Section: Pre-Departure Gate Checklist */}
-      <div style={styles.sectionHeaderRow}>
-        <h3 style={styles.sectionTitle}>Final Loading Checklist</h3>
-        <span style={styles.mandatoryStepsPill}>5 Verification Steps</span>
-      </div>
-
-      <div style={styles.gateChecklistStack}>
-        {finalChecklist.map((step) => (
-          <div key={step.id} style={styles.gateChecklistCard}>
-            <div style={styles.gateCheckboxSquare}>
-              <span style={styles.gateCheckmark}>✓</span>
-            </div>
-            <div style={styles.gateTextCol}>
-              <div style={styles.gateTitleRow}>
-                <h4 style={styles.gateStepTitle}>{step.title}</h4>
-                {step.badge && (
-                  <span style={styles.sealBadge}>{step.badge}</span>
-                )}
+          <div style={styles.stopsStack}>
+            {stops.map((stop) => (
+              <div key={stop.stopSequence} style={styles.stopCard}>
+                <div style={styles.stopNumberBadge}>
+                  {stop.stopSequence}
+                </div>
+                <div style={styles.stopInfoCol}>
+                  <h4 style={styles.stopTitle}>
+                    Stop {stop.stopSequence}: {stop.outletName}
+                  </h4>
+                  <p style={styles.stopChamberText}>
+                    {stop.chamberZone}
+                  </p>
+                </div>
+                <span style={{
+                  ...styles.stopStatusBadge,
+                  backgroundColor: stop.hasDiscrepancy ? '#fee2e2' : '#dcfce7',
+                  color: stop.hasDiscrepancy ? '#dc2626' : '#16a34a',
+                }}>
+                  {stop.hasDiscrepancy ? `! ${stop.statusBadge}` : `✓ ${stop.statusBadge}`}
+                </span>
               </div>
-              <p style={styles.gateStepDesc}>{step.description}</p>
-            </div>
+            ))}
           </div>
-        ))}
+
+          {/* Section: Pre-Departure Dispatch Checklist */}
+          <div style={styles.sectionHeaderRow}>
+            <h3 style={styles.sectionTitle}>Final Loading Checklist</h3>
+            <span style={styles.mandatoryStepsPill}>5 Verification Steps</span>
+          </div>
+
+          <div style={styles.gateChecklistStack}>
+            {finalChecklist.map((step) => (
+              <div key={step.id} style={styles.gateChecklistCard}>
+                <div style={styles.gateCheckboxSquare}>
+                  <span style={styles.gateCheckmark}>✓</span>
+                </div>
+                <div style={styles.gateTextCol}>
+                  <div style={styles.gateTitleRow}>
+                    <h4 style={styles.gateStepTitle}>{step.title}</h4>
+                    {step.badge && (
+                      <span style={styles.sealBadge}>{step.badge}</span>
+                    )}
+                  </div>
+                  <p style={styles.gateStepDesc}>{step.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Primary Action Button (Fixed Bottom Bar / Action) */}
-      <div style={styles.bottomActionContainer}>
-        {isReadyForDispatch ? (
-          <div style={styles.completedBadgeBox}>
-            <span style={styles.completedCheckIcon}>✓</span>
-            <span style={styles.completedText}>
-              Vehicle Ready for Dispatch
-            </span>
-          </div>
-        ) : canDispatch ? (
+      {/* Sticky Bottom Action Area with Breathing Space */}
+      <div className="sticky bottom-4 z-20 mt-6 sm:mt-8">
+        <div className="bg-white/95 backdrop-blur border border-slate-200/90 rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
           <button
-            id="confirm-dispatch-ready-btn"
-            style={styles.confirmReadyButton}
-            onClick={() => setShowConfirmModal(true)}
+            style={styles.returnTasksLink}
+            onClick={() => navigate('/loader')}
           >
-            ✓ Confirm Ready for Dispatch
+            ← Back to Today's Tasks
           </button>
-        ) : isDispatchBlocked ? (
-          <div style={styles.blockedNoticeBox}>
-            <span style={styles.blockedNoticeIcon}>🚫</span>
-            <span style={styles.blockedNoticeText}>
-              Dispatch Blocked: Unresolved loading discrepancy requires review before dispatch.
-            </span>
-          </div>
-        ) : (
-          <div style={styles.blockedNoticeBox}>
-            <span style={styles.blockedNoticeIcon}>⚠️</span>
-            <span style={styles.blockedNoticeText}>
-              Dispatch Blocked: Complete loading all {progress.totalItems} items before vehicle can be marked ready for dispatch.
-            </span>
-          </div>
-        )}
 
-        <button
-          style={styles.returnTasksLink}
-          onClick={() => navigate('/loader')}
-        >
-          ← Back to Today's Tasks
-        </button>
-      </div>
-      </div>
+          <div className="w-full sm:w-auto sm:min-w-[320px]">
+            {isReadyForDispatch ? (
+              <div style={styles.completedBadgeBox}>
+                <span style={styles.completedCheckIcon}>✓</span>
+                <span style={styles.completedText}>
+                  Vehicle Ready for Dispatch
+                </span>
+              </div>
+            ) : canDispatch ? (
+              <button
+                id="confirm-dispatch-ready-btn"
+                style={styles.confirmReadyButton}
+                onClick={() => setShowConfirmModal(true)}
+              >
+                ✓ Confirm Ready for Dispatch
+              </button>
+            ) : isDispatchBlocked ? (
+              <div style={styles.blockedNoticeBox}>
+                <span style={styles.blockedNoticeIcon}>🚫</span>
+                <span style={styles.blockedNoticeText}>
+                  Dispatch Blocked: Unresolved loading discrepancy requires review before dispatch.
+                </span>
+              </div>
+            ) : (
+              <div style={styles.blockedNoticeBox}>
+                <span style={styles.blockedNoticeIcon}>⚠️</span>
+                <span style={styles.blockedNoticeText}>
+                  Dispatch Blocked: Complete loading all {progress.totalItems} items before vehicle can be marked ready for dispatch.
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Confirmation Modal */}
@@ -560,7 +563,7 @@ const styles: Record<string, React.CSSProperties> = {
   page: {
     backgroundColor: '#f8fafc',
     minHeight: '100vh',
-    padding: '16px 20px 80px 20px',
+    padding: '16px 20px 48px 20px',
     maxWidth: '1280px',
     width: '100%',
     margin: '0 auto',

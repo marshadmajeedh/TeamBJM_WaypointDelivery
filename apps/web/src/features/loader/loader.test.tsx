@@ -443,7 +443,7 @@ describe('Loader Feature 1: Loading Tasks Dashboard & Vehicle Loading Details (L
     renderLoaderApp('/loader');
 
     await waitFor(() => {
-      expect(screen.getByText("Today's Loading Tasks")).toBeDefined();
+      expect(screen.getByText('Vehicles to Load')).toBeDefined();
     });
 
     // Click "Not Started" filter

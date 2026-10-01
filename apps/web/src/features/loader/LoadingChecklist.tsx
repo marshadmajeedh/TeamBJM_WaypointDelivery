@@ -376,7 +376,7 @@ export const LoadingChecklist: React.FC = () => {
 
               {/* Stop Items */}
               {!isCollapsed && (
-                <div style={styles.itemsListContainer}>
+                <div className="p-3 grid grid-cols-1 md:grid-cols-2 gap-3 items-stretch">
                   {filteredItems.map((item) => {
                     const isItemUpdating = updatingItemId === item.id;
 
@@ -529,7 +529,7 @@ const styles: Record<string, React.CSSProperties> = {
     maxWidth: '1280px',
     width: '100%',
     margin: '0 auto',
-    padding: '16px 20px 120px 20px',
+    padding: '16px 20px 48px 20px',
     backgroundColor: '#f8fafc',
     minHeight: '100vh',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -1066,21 +1066,20 @@ const styles: Record<string, React.CSSProperties> = {
     opacity: 0.8,
   },
   bottomActionBar: {
-    position: 'fixed',
-    bottom: 0,
-    left: '50%',
-    transform: 'translateX(-50%)',
-    width: '100%',
-    maxWidth: '1280px',
+    position: 'sticky',
+    bottom: '16px',
     backgroundColor: '#ffffff',
-    borderTop: '1px solid #e2e8f0',
-    padding: '12px 20px',
+    borderRadius: '16px',
+    border: '1px solid #e2e8f0',
+    padding: '16px 20px',
+    marginTop: '24px',
     boxSizing: 'border-box',
     display: 'flex',
     alignItems: 'center',
-    gap: '10px',
-    boxShadow: '0 -2px 10px rgba(0,0,0,0.06)',
-    zIndex: 100,
+    justifyContent: 'space-between',
+    gap: '12px',
+    boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.05)',
+    zIndex: 30,
   },
   saveDraftButton: {
     backgroundColor: '#f1f5f9',

@@ -586,7 +586,7 @@ const styles: Record<string, React.CSSProperties> = {
   page: {
     backgroundColor: '#f8fafc',
     minHeight: '100vh',
-    padding: '16px 20px 80px 20px',
+    padding: '16px 20px 48px 20px',
     maxWidth: '900px',
     width: '100%',
     margin: '0 auto',
