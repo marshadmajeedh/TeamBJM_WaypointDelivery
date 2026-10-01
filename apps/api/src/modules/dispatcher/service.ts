@@ -1,7 +1,7 @@
 import { Prisma, TemperatureRequirement } from '@prisma/client';
 import { prisma } from '../../db';
 import { allocationEngineService } from '../allocation/service';
-import { PlanningOrder, PlanningVehicle } from '../allocation/types';
+import { ManualAssignment, PlanningOrder, PlanningVehicle } from '../allocation/types';
 
 const tempRank: Record<TemperatureRequirement, number> = { AMBIENT:0, CHILLED:1, FROZEN:2 };
 const atTime = (day: Date, value: string | null, fallback: number) => { const result=new Date(day); const [h,m]=(value||`${fallback}:00`).split(':').map(Number); result.setHours(h,m||0,0,0); return result; };
@@ -26,5 +26,6 @@ export const dispatcherService = {
     return {...v,registration:v.registrationNumber,refrigerated:v.tempType==='REEFER',status:v.isActive?'AVAILABLE':'MAINTENANCE',usedWeightKg:trip?.totalWeightKg||0,usedVolumeM3:trip?.totalVolumeM3||0,assignedStops:trip?.tripOrders.map(x=>({sequence:x.sequenceNumber,order:x.order.orderNumber,outlet:x.order.outlet.name}))||[],route:trip?{reference:trip.tripNumber,status:trip.status,driver:trip.driver?.name||'Not assigned',date:trip.tripDate}:null};
   },
   async preview(orderIds:string[],date:Date) { const rows=await prisma.order.findMany({where:{id:{in:orderIds},status:'CONFIRMED'},include:orderInclude}); const orders=rows.map(mapOrder); const vehicles=await this.vehicles(date); return {serviceDate:date,orders,vehicles,results:allocationEngineService.evaluateOrders(orders,vehicles)}; },
+  async validateManual(assignments:ManualAssignment[],date:Date) { const rows=await prisma.order.findMany({where:{id:{in:assignments.map(x=>x.orderId)},status:'CONFIRMED'},include:orderInclude}); const orders=rows.map(mapOrder); const vehicles=await this.vehicles(date); return {serviceDate:date,orders,vehicles,results:allocationEngineService.validateManualAssignments(orders,vehicles,assignments)}; },
   async trips() { const trips=await prisma.trip.findMany({include:{vehicle:true,driver:true,tripOrders:{include:{order:{include:{outlet:true}}},orderBy:{sequenceNumber:'asc'}}},orderBy:{createdAt:'desc'}}); return trips.map(t=>({id:t.id,reference:t.tripNumber,tripNumber:t.tripSequenceNumber,status:t.status,driver:t.driver?.name||'Not assigned',coldChain:t.vehicle.tempType==='REEFER'?'No sensor reading recorded':'Not required',issues:[],vehicle:{registration:t.vehicle.registrationNumber,refrigerated:t.vehicle.tempType==='REEFER'},stops:t.tripOrders.map(x=>({id:x.id,sequence:x.sequenceNumber,eta:atTime(t.tripDate,x.order.outlet.deliveryWindowStart,8),status:x.order.status,order:{reference:x.order.orderNumber,outletName:x.order.outlet.name}}))})); }
 };

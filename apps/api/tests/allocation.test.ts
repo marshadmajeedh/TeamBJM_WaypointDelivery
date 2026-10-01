@@ -14,4 +14,10 @@ describe('AllocationEngineService', () => {
   it('enforces volume capacity', () => expect(service.evaluateOrders([order({volumeM3:20})], [vehicle()])[0].deferralReason).toMatch(/volume/));
   it('enforces weekly fuel quota', () => expect(service.evaluateOrders([order()], [vehicle({fuelUsedThisWeekL:190})])[0].deferralReason).toMatch(/fuel/));
   it('enforces the two-trip maximum', () => expect(service.evaluateOrders([order()], [vehicle({tripsToday:2})])[0].deferralReason).toMatch(/two trips/));
+  it('validates a manual vehicle and trip assignment', () => expect(service.validateManualAssignments([order()], [vehicle()], [{orderId:'o1',vehicleId:'v1',tripSequence:2}])[0]).toMatchObject({status:'SERVED',assignedVehicleId:'v1',tripSequence:2}));
+  it('rejects manual assignments that exceed combined trip capacity', () => {
+    const results=service.validateManualAssignments([order(),order({id:'o2',weightKg:950})],[vehicle()],[{orderId:'o1',vehicleId:'v1',tripSequence:1},{orderId:'o2',vehicleId:'v1',tripSequence:1}]);
+    expect(results[1].deferralReason).toMatch(/weight capacity/);
+  });
+  it('rejects a manual assignment to an incompatible vehicle', () => expect(service.validateManualAssignments([order({temperature:'CHILLED'})],[vehicle()],[{orderId:'o1',vehicleId:'v1',tripSequence:1}])[0].deferralReason).toMatch(/Refrigerated/));
 });

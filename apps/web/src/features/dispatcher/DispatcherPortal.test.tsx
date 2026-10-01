@@ -37,5 +37,27 @@ describe('DispatcherPortal',()=>{
     expect(screen.getByText('Showing 2 of 2')).toBeDefined();
     expect(screen.getByText('ORD-AMBIENT')).toBeDefined();
   });
+  it('revalidates a manual vehicle assignment before publishing',async()=>{
+    const planningOrder={id:'o1',reference:'ORD-1042',outletName:'Cold Shop',depot:'Peliyagoda',address:'A',windowStart:'2026-10-02T08:00:00Z',windowEnd:'2026-10-02T10:00:00Z',weightKg:100,volumeM3:1,temperature:'CHILLED',vanOnly:false,priority:1,status:'CONFIRMED',deferralCount:0};
+    const vehicles=[
+      {id:'v1',registration:'VEH014',depot:'Peliyagoda',type:'VAN',maxWeightKg:1000,maxVolumeM3:10,refrigerated:true,weeklyFuelQuotaL:200,fuelUsedThisWeekL:20,available:true,tripsToday:0},
+      {id:'v2',registration:'VEH015',depot:'Peliyagoda',type:'TRUCK',maxWeightKg:2000,maxVolumeM3:20,refrigerated:true,weeklyFuelQuotaL:300,fuelUsedThisWeekL:20,available:true,tripsToday:0}
+    ];
+    mocked.mockImplementation(async(path:string)=>{
+      if(path==='/dashboard')return {confirmed:1,planned:0,deferred:0,activeTrips:0,availableVehicles:2} as never;
+      if(path==='/orders')return [planningOrder] as never;
+      if(path==='/plans/preview')return {results:[{orderId:'o1',status:'SERVED',assignedVehicleId:'v1',tripSequence:1}],vehicles} as never;
+      if(path==='/plans/validate-manual')return {results:[{orderId:'o1',status:'SERVED',assignedVehicleId:'v2',tripSequence:1}],vehicles} as never;
+      return [] as never;
+    });
+    render(<DispatcherPortal/>);
+    fireEvent.click(screen.getByRole('button',{name:'Daily Planning'}));
+    await waitFor(()=>expect(screen.getByText('ORD-1042')).toBeDefined());
+    fireEvent.click(screen.getByRole('button',{name:'Validate & Review 1'}));
+    await waitFor(()=>expect(screen.getByText('Allocation Review')).toBeDefined());
+    fireEvent.change(screen.getByLabelText('Vehicle for ORD-1042'),{target:{value:'v2'}});
+    await waitFor(()=>expect(mocked).toHaveBeenCalledWith('/plans/validate-manual',expect.objectContaining({method:'POST'})));
+    expect(await screen.findByText(/VEH015 · Trip 1/)).toBeDefined();
+  });
   it('provides every required dispatcher navigation area',async()=>{render(<DispatcherPortal/>);await waitFor(()=>expect(screen.getByText('8')).toBeDefined());['Dashboard','Confirmed Orders','Daily Planning','Fleet & Vehicles','Active Deliveries','Deferred Orders'].forEach(label=>expect(screen.getByRole('button',{name:label})).toBeDefined());});
 });
