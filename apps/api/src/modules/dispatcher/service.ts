@@ -1,7 +1,7 @@
 import { Prisma, TemperatureRequirement } from '@prisma/client';
 import { prisma } from '../../db';
 import { allocationEngineService } from '../allocation/service';
-import { ManualAssignment, PlanningOrder, PlanningVehicle } from '../allocation/types';
+import { AllocationCheckResult, ManualAssignment, PlanningOrder, PlanningVehicle } from '../allocation/types';
 
 const tempRank: Record<TemperatureRequirement, number> = { AMBIENT:0, CHILLED:1, FROZEN:2 };
 const atTime = (day: Date, value: string | null, fallback: number) => { const result=new Date(day); const [h,m]=(value||`${fallback}:00`).split(':').map(Number); result.setHours(h,m||0,0,0); return result; };
@@ -12,6 +12,20 @@ type FullOrder = Prisma.OrderGetPayload<{include:typeof orderInclude}>;
 function mapOrder(order: FullOrder) {
   const temperature=order.items.reduce<TemperatureRequirement>((best,item)=>tempRank[item.tempRequirement]>tempRank[best]?item.tempRequirement:best,'AMBIENT');
   return { id:order.id,reference:order.orderNumber,outletName:order.outlet.name,depot:order.outlet.depotId||'UNASSIGNED',address:order.outlet.address,windowStart:atTime(order.requestedDeliveryDate,order.outlet.deliveryWindowStart,8),windowEnd:atTime(order.requestedDeliveryDate,order.outlet.deliveryWindowEnd,17),weightKg:order.totalWeightKg,volumeM3:order.totalVolumeM3,temperature,vanOnly:order.outlet.vanOnly,priority:order.deferralCount,status:order.status,deferralReason:order.deferralReason,deferralCount:order.deferralCount,nextDeliveryDate:order.nextDeliveryDate,deferralTimeSlot:order.deferralTimeSlot,deferralPriority:order.deferralPriority,deferredVehicleId:order.deferredVehicleId,deferredVehicleRegistration:order.deferredVehicle?.registrationNumber||null,dispatcherNotes:order.dispatcherNotes };
+}
+
+export function addSuggestions(orders:PlanningOrder[],vehicles:PlanningVehicle[],results:AllocationCheckResult[]){
+  const orderMap=new Map(orders.map(order=>[order.id,order])),usage=new Map<string,{weight:number;volume:number}>();
+  results.filter(result=>result.status==='SERVED'&&result.assignedVehicleId&&result.tripSequence).forEach(result=>{const order=orderMap.get(result.orderId);if(!order)return;const key=`${result.assignedVehicleId}:${result.tripSequence}`,used=usage.get(key)||{weight:0,volume:0};usage.set(key,{weight:used.weight+order.weightKg,volume:used.volume+order.volumeM3})});
+  return results.map(result=>{
+    if(result.status==='SERVED')return result;
+    const order=orderMap.get(result.orderId);if(!order)return {...result,suggestion:'Review order details and reschedule to the next delivery slot'};
+    for(const vehicle of vehicles.filter(v=>v.available&&v.depot===order.depot&&(!order.vanOnly||v.type==='VAN')&&(order.temperature==='AMBIENT'||v.refrigerated)&&v.fuelUsedThisWeekL+v.estimatedFuelPerTripL<=v.weeklyFuelQuotaL)){
+      for(let trip=vehicle.tripsToday+1;trip<=2;trip++){const used=usage.get(`${vehicle.id}:${trip}`)||{weight:0,volume:0};if(used.weight+order.weightKg<=vehicle.maxWeightKg&&used.volume+order.volumeM3<=vehicle.maxVolumeM3)return {...result,suggestion:`Move ${order.reference} to ${vehicle.registration} · Trip ${trip}`,suggestedVehicleId:vehicle.id,suggestedTripSequence:trip}}
+    }
+    const suggestion=order.temperature!=='AMBIENT'?'Reserve the next refrigerated vehicle slot and reschedule this order':order.vanOnly?'Reserve the next available van slot for this access-restricted outlet':result.deferralReason?.toLowerCase().includes('fuel')?'Use a vehicle below its weekly fuel threshold or reschedule the run':'Reschedule to the next delivery slot and increase its deferral priority';
+    return {...result,suggestion};
+  });
 }
 
 export const dispatcherService = {
@@ -43,7 +57,7 @@ export const dispatcherService = {
     const usedWeightKg=trip?.tripOrders.reduce((sum,x)=>sum+x.order.totalWeightKg,0)||0,usedVolumeM3=trip?.tripOrders.reduce((sum,x)=>sum+x.order.totalVolumeM3,0)||0;
     return {...v,registration:v.registrationNumber,refrigerated:v.tempType==='REEFER',status:v.isActive?'AVAILABLE':'MAINTENANCE',usedWeightKg,usedVolumeM3,assignedStops:trip?.tripOrders.map(x=>({sequence:x.sequenceNumber,order:x.order.orderNumber,outlet:x.order.outlet.name}))||[],route:trip?{reference:trip.tripNumber,status:trip.status,driver:trip.driver?.name||'Not assigned',date:trip.tripDate}:null};
   },
-  async preview(orderIds:string[],date:Date) { const rows=await prisma.order.findMany({where:{id:{in:orderIds},status:'CONFIRMED'},include:orderInclude}); const orders=rows.map(mapOrder); const vehicles=await this.vehicles(date); return {serviceDate:date,orders,vehicles,results:allocationEngineService.evaluateOrders(orders,vehicles)}; },
-  async validateManual(assignments:ManualAssignment[],date:Date) { const rows=await prisma.order.findMany({where:{id:{in:assignments.map(x=>x.orderId)},status:'CONFIRMED'},include:orderInclude}); const orders=rows.map(mapOrder); const vehicles=await this.vehicles(date); return {serviceDate:date,orders,vehicles,results:allocationEngineService.validateManualAssignments(orders,vehicles,assignments)}; },
+  async preview(orderIds:string[],date:Date) { const rows=await prisma.order.findMany({where:{id:{in:orderIds},status:'CONFIRMED'},include:orderInclude}); const orders=rows.map(mapOrder); const vehicles=await this.vehicles(date); const results=allocationEngineService.evaluateOrders(orders,vehicles); return {serviceDate:date,orders,vehicles,results:addSuggestions(orders,vehicles,results)}; },
+  async validateManual(assignments:ManualAssignment[],date:Date) { const rows=await prisma.order.findMany({where:{id:{in:assignments.map(x=>x.orderId)},status:'CONFIRMED'},include:orderInclude}); const orders=rows.map(mapOrder); const vehicles=await this.vehicles(date); const results=allocationEngineService.validateManualAssignments(orders,vehicles,assignments); return {serviceDate:date,orders,vehicles,results:addSuggestions(orders,vehicles,results)}; },
   async trips() { const trips=await prisma.trip.findMany({include:{vehicle:true,driver:true,deliveries:true,tripOrders:{include:{order:{include:{outlet:true}}},orderBy:{sequenceNumber:'asc'}}},orderBy:{createdAt:'desc'}}); return trips.map(t=>({id:t.id,reference:t.tripNumber,tripNumber:t.tripSequenceNumber,status:t.status,driver:t.driver?.name||'Not assigned',coldChain:t.vehicle.tempType==='REEFER'?'No sensor reading recorded':'Not required',issues:[],totalWeightKg:t.totalWeightKg,totalVolumeM3:t.totalVolumeM3,maxWeightKg:t.vehicle.maxWeightKg,maxVolumeM3:t.vehicle.maxVolumeM3,vehicle:{registration:t.vehicle.registrationNumber,refrigerated:t.vehicle.tempType==='REEFER'},stops:t.tripOrders.map(x=>{const delivery=t.deliveries.find(d=>d.orderId===x.orderId);return {id:x.id,sequence:x.sequenceNumber,eta:atTime(t.tripDate,x.order.outlet.deliveryWindowStart,8),status:delivery?.completedAt?(delivery.outcome||'DELIVERED'):x.order.status,order:{reference:x.order.orderNumber,outletName:x.order.outlet.name}}})})); }
 };

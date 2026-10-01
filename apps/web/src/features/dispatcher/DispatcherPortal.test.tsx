@@ -85,6 +85,25 @@ describe('DispatcherPortal',()=>{
     await waitFor(()=>expect(mocked).toHaveBeenCalledWith('/plans/validate-manual',expect.objectContaining({method:'POST'})));
     expect(await screen.findByText(/VEH015 · Trip 1/)).toBeDefined();
   });
+  it('applies a backend conflict-resolution suggestion',async()=>{
+    const planningOrder={id:'o1',reference:'ORD-1042',outletName:'Cold Shop',depot:'Peliyagoda',address:'A',windowStart:'2026-10-02T08:00:00Z',windowEnd:'2026-10-02T10:00:00Z',weightKg:100,volumeM3:1,temperature:'CHILLED',vanOnly:false,priority:1,status:'CONFIRMED',deferralCount:0};
+    const vehicle={id:'v1',registration:'VEH014',depot:'Peliyagoda',type:'VAN',maxWeightKg:1000,maxVolumeM3:10,refrigerated:true,weeklyFuelQuotaL:200,fuelUsedThisWeekL:20,available:true,tripsToday:0};
+    mocked.mockImplementation(async(path:string)=>{
+      if(path==='/dashboard')return {confirmed:1,planned:0,deferred:0,activeTrips:0,availableVehicles:1} as never;
+      if(path==='/alerts')return [] as never;
+      if(path==='/orders')return [planningOrder] as never;
+      if(path==='/plans/preview')return {results:[{orderId:'o1',status:'DEFERRED',deferralReason:'Capacity conflict',suggestion:'Move ORD-1042 to VEH014 · Trip 2',suggestedVehicleId:'v1',suggestedTripSequence:2}],vehicles:[vehicle]} as never;
+      if(path==='/plans/validate-manual')return {results:[{orderId:'o1',status:'SERVED',assignedVehicleId:'v1',tripSequence:2}],vehicles:[vehicle]} as never;
+      return [] as never;
+    });
+    render(<DispatcherPortal/>);
+    fireEvent.click(screen.getByRole('button',{name:'Daily Planning'}));
+    fireEvent.click(await screen.findByRole('button',{name:'Validate & Review 1'}));
+    expect(await screen.findByText(/Move ORD-1042 to VEH014/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button',{name:'Apply suggestion'}));
+    await waitFor(()=>expect(mocked).toHaveBeenCalledWith('/plans/validate-manual',expect.objectContaining({body:expect.stringContaining('"tripSequence":2')})));
+    expect(await screen.findByText(/VEH014 · Trip 2/)).toBeDefined();
+  });
   it('shows real vehicle weight, volume and fuel utilization',async()=>{
     const vehicle={id:'v1',registration:'VEH014',depot:'Peliyagoda',type:'VAN',maxWeightKg:1000,maxVolumeM3:10,refrigerated:true,weeklyFuelQuotaL:200,fuelUsedThisWeekL:100,available:true,tripsToday:1};
     mocked.mockImplementation(async(path:string)=>{

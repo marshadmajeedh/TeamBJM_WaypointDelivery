@@ -35,6 +35,9 @@ export interface AllocationCheckResult {
   assignedVehicleId?: string;
   tripSequence?: number;
   deferralReason?: string;
+  suggestion?: string;
+  suggestedVehicleId?: string;
+  suggestedTripSequence?: number;
 }
 
 export interface ManualAssignment {
