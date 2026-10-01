@@ -8,20 +8,18 @@ import {
   Snowflake,
   ShieldCheck,
   RotateCw,
-  QrCode,
   Package,
   Layers,
   ChevronRight,
   Info,
   X,
-  User,
   ListTodo,
 } from 'lucide-react';
 import { LoadingStatus } from '@waypoint/shared';
 import { fetchLoadingTasks } from '../../services/api';
 import type { LoadingTasksResponseData, LoadingTaskItem } from '@waypoint/shared';
 
-type FilterTab = 'ALL' | 'NOT_STARTED' | 'LOADING' | 'READY';
+type FilterTab = 'ALL' | 'NOT_STARTED' | 'LOADING' | 'READY' | 'ISSUES';
 
 export const LoaderDashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -62,6 +60,10 @@ export const LoaderDashboard: React.FC = () => {
         );
       case 'READY':
         return tasks.filter((t) => t.status === LoadingStatus.READY_FOR_DISPATCH);
+      case 'ISSUES':
+        return tasks.filter(
+          (t) => t.status === LoadingStatus.ISSUE_REPORTED || !!t.issue
+        );
       case 'ALL':
       default:
         return tasks;
@@ -132,10 +134,15 @@ export const LoaderDashboard: React.FC = () => {
   const readyCount = data
     ? data.tasks.filter((t) => t.status === LoadingStatus.READY_FOR_DISPATCH).length
     : 0;
+  const issueCount = data
+    ? data.tasks.filter(
+        (t) => t.status === LoadingStatus.ISSUE_REPORTED || !!t.issue
+      ).length
+    : 0;
 
   return (
-    <div className="flex-1 bg-slate-900/40 p-2 sm:p-4 md:p-6 lg:p-8 flex justify-center">
-      <div className="w-full max-w-xl bg-slate-50 text-slate-900 rounded-2xl shadow-2xl border border-slate-200/80 overflow-hidden flex flex-col min-h-[840px] relative">
+    <div className="flex-1 bg-slate-900/40 p-2 sm:p-4 md:p-6 lg:p-8 flex justify-center w-full">
+      <div className="w-full max-w-7xl bg-slate-50 text-slate-900 rounded-2xl shadow-xl border border-slate-200/80 flex flex-col min-h-[840px] relative">
         {/* Top Notification Toast / Pill */}
         {showNotification && (
           <div className="bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between text-xs sm:text-sm font-medium">
@@ -154,7 +161,7 @@ export const LoaderDashboard: React.FC = () => {
         )}
 
         {/* Content Container */}
-        <div className="p-4 sm:p-5 flex-1 flex flex-col space-y-4">
+        <div className="p-4 sm:p-6 lg:p-8 flex-1 flex flex-col space-y-5 pb-28 md:pb-8">
           {/* Header Metadata Pill */}
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
             <span className="px-2.5 py-1 rounded-full bg-sky-100 text-sky-900 flex items-center space-x-1.5 border border-sky-200">
@@ -211,17 +218,17 @@ export const LoaderDashboard: React.FC = () => {
           {/* Content when data loaded */}
           {!isLoading && !error && data && (
             <>
-              {/* Summary Cards Grid (2x2) */}
-              <div className="grid grid-cols-2 gap-3" id="loading-summary-section">
+              {/* Summary Cards Grid (2x2 / 4x1) */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 items-stretch" id="loading-summary-section">
                 {/* 1. Vehicles to Load */}
-                <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+                <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200/90 shadow-sm flex flex-col justify-between h-full">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-600">Vehicles to Load</span>
-                    <div className="p-1.5 rounded-lg bg-sky-100 text-sky-700">
+                    <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center flex-shrink-0">
                       <Truck className="w-4 h-4" />
                     </div>
                   </div>
-                  <div className="mt-2 flex items-baseline space-x-2">
+                  <div className="mt-2.5 flex items-baseline space-x-2">
                     <span className="text-2xl font-black text-slate-900" id="summary-vehicles-to-load">
                       {data.summary.vehiclesToLoad}
                     </span>
@@ -235,18 +242,18 @@ export const LoaderDashboard: React.FC = () => {
                 </div>
 
                 {/* 2. In Progress */}
-                <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+                <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200/90 shadow-sm flex flex-col justify-between h-full">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-600">In Progress</span>
-                    <div className="p-1.5 rounded-lg bg-sky-100 text-sky-700">
+                    <div className="w-8 h-8 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center flex-shrink-0">
                       <Package className="w-4 h-4" />
                     </div>
                   </div>
-                  <div className="mt-2 flex items-baseline space-x-2">
+                  <div className="mt-2.5 flex items-baseline space-x-2">
                     <span className="text-2xl font-black text-sky-700" id="summary-in-progress">
                       {data.summary.inProgress}
                     </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-50 text-sky-800">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-200">
                       active
                     </span>
                   </div>
@@ -256,18 +263,18 @@ export const LoaderDashboard: React.FC = () => {
                 </div>
 
                 {/* 3. Ready for Dispatch */}
-                <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+                <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200/90 shadow-sm flex flex-col justify-between h-full">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-600">Ready for Dispatch</span>
-                    <div className="p-1.5 rounded-lg bg-blue-100 text-blue-700">
+                    <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center flex-shrink-0">
                       <ShieldCheck className="w-4 h-4" />
                     </div>
                   </div>
-                  <div className="mt-2 flex items-baseline space-x-2">
+                  <div className="mt-2.5 flex items-baseline space-x-2">
                     <span className="text-2xl font-black text-slate-900" id="summary-ready-dispatch">
                       {data.summary.readyForDispatch}
                     </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-800">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">
                       sealed
                     </span>
                   </div>
@@ -277,14 +284,14 @@ export const LoaderDashboard: React.FC = () => {
                 </div>
 
                 {/* 4. Discrepancy */}
-                <div className="bg-white p-3.5 rounded-xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
+                <div className="bg-white p-3.5 sm:p-4 rounded-xl border border-slate-200/90 shadow-sm flex flex-col justify-between h-full">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-rose-700">Discrepancy</span>
-                    <div className="p-1.5 rounded-lg bg-rose-100 text-rose-700">
+                    <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center flex-shrink-0">
                       <AlertTriangle className="w-4 h-4" />
                     </div>
                   </div>
-                  <div className="mt-2 flex items-baseline space-x-2">
+                  <div className="mt-2.5 flex items-baseline space-x-2">
                     <span
                       className={`text-2xl font-black ${
                         data.summary.discrepancies > 0 ? 'text-rose-600' : 'text-slate-900'
@@ -293,7 +300,7 @@ export const LoaderDashboard: React.FC = () => {
                     >
                       {data.summary.discrepancies}
                     </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-50 text-rose-700">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 border border-rose-200">
                       flagged
                     </span>
                   </div>
@@ -366,14 +373,28 @@ export const LoaderDashboard: React.FC = () => {
                     {readyCount}
                   </span>
                 </button>
+                <button
+                  id="filter-issues"
+                  onClick={() => setActiveTab('ISSUES')}
+                  className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center space-x-1 whitespace-nowrap ${
+                    activeTab === 'ISSUES'
+                      ? 'bg-rose-900 text-white shadow-sm'
+                      : 'text-rose-700 hover:text-rose-900'
+                  }`}
+                >
+                  <span>Issues</span>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-700/60 text-slate-100">
+                    {issueCount}
+                  </span>
+                </button>
               </div>
 
               {/* Task Cards List */}
-              <div className="space-y-3.5 pb-16" id="loading-tasks-list">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-6 items-stretch" id="loading-tasks-list">
                 {filteredTasks.length === 0 ? (
                   <div
                     id="no-tasks-state"
-                    className="bg-white p-8 rounded-xl border border-slate-200 text-center space-y-2"
+                    className="bg-white p-8 rounded-xl border border-slate-200 text-center space-y-2 lg:col-span-2"
                   >
                     <Package className="w-10 h-10 text-slate-400 mx-auto" />
                     <p className="text-sm font-semibold text-slate-700">No loading tasks found</p>
@@ -391,109 +412,111 @@ export const LoaderDashboard: React.FC = () => {
                       <div
                         key={task.id}
                         id={`task-card-${task.id}`}
-                        className="bg-white rounded-xl border border-slate-200/90 shadow-sm p-4 space-y-3 transition hover:border-slate-300"
+                        className="bg-white rounded-xl border border-slate-200/90 shadow-sm p-4 sm:p-5 flex flex-col h-full transition hover:border-slate-300"
                       >
-                        {/* Task Header: Vehicle ID • Trip • Bay | Status */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-extrabold text-slate-900 text-sm tracking-tight">
+                        {/* 1. Header Region: Vehicle ID • Trip • Bay | Status */}
+                        <div className="flex items-center justify-between gap-2 min-h-[32px]">
+                          <div className="flex items-center space-x-2 min-w-0">
+                            <span className="font-extrabold text-slate-900 text-sm tracking-tight truncate">
                               {task.vehicle.registrationNumber.slice(-6)} • Trip {task.tripSequenceNumber}
                             </span>
-                            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-900 text-white tracking-wider">
+                            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-900 text-white tracking-wider flex-shrink-0">
                               {task.bay}
                             </span>
                           </div>
-                          <div>{getStatusBadge(task.status, task.issue)}</div>
+                          <div className="flex-shrink-0">{getStatusBadge(task.status, task.issue)}</div>
                         </div>
 
-                        {/* Details Box */}
-                        <div className="bg-sky-50/60 border border-sky-100 rounded-xl p-3 space-y-2.5">
-                          <div className="flex items-start space-x-3">
-                            {getVehicleDisplayIcon(task)}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <h3 className="font-bold text-slate-900 text-sm truncate">
-                                  {task.vehicle.modelName}
-                                </h3>
-                                {isReady && (
-                                  <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">
-                                    100% Stowed
-                                  </span>
-                                )}
+                        {/* 2. Vehicle & Operational Information (flex-1 to push progress and actions down equally) */}
+                        <div className="bg-sky-50/60 border border-sky-100 rounded-xl p-3 sm:p-3.5 space-y-2.5 flex-1 flex flex-col justify-between mt-3">
+                          <div className="space-y-2.5">
+                            {/* Vehicle spec row */}
+                            <div className="flex items-start space-x-3">
+                              {getVehicleDisplayIcon(task)}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <h3 className="font-bold text-slate-900 text-sm truncate">
+                                    {task.vehicle.modelName}
+                                  </h3>
+                                  {isReady && (
+                                    <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 flex-shrink-0">
+                                      100% Stowed
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-slate-600 font-medium">
+                                  Reg: {task.vehicle.registrationNumber}
+                                </p>
                               </div>
-                              <p className="text-xs text-slate-600 font-medium">
-                                Reg: {task.vehicle.registrationNumber}
-                              </p>
+                            </div>
+
+                            {/* Departure info */}
+                            <div className="flex items-center space-x-1.5 text-xs text-slate-600">
+                              <Clock className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                              <span className="font-medium">{task.departureFormatted}</span>
+                              <span className="text-slate-400">•</span>
+                              <span className="font-bold text-sky-700">{task.departureCountdown}</span>
+                            </div>
+
+                            {/* Orders & Stops */}
+                            <div className="text-xs text-slate-600 font-medium break-words">
+                              <span>
+                                {task.ordersCount} Orders • {task.stopsCount} Stops
+                              </span>
+                              {task.stopsSummary && (
+                                <span className="text-slate-500"> ({task.stopsSummary})</span>
+                              )}
+                              <span className="text-slate-400"> • </span>
+                              <span className="font-semibold text-slate-700">
+                                {task.temperatureRequirement}
+                              </span>
                             </div>
                           </div>
 
-                          {/* Departure info */}
-                          <div className="flex items-center space-x-1.5 text-xs text-slate-600">
-                            <Clock className="w-3.5 h-3.5 text-slate-500" />
-                            <span className="font-medium">{task.departureFormatted}</span>
-                            <span className="text-slate-400">•</span>
-                            <span className="font-bold text-sky-700">{task.departureCountdown}</span>
-                          </div>
-
-                          {/* Orders & Stops */}
-                          <div className="text-xs text-slate-600 font-medium">
-                            <span>
-                              {task.ordersCount} Orders • {task.stopsCount} Stops
-                            </span>
-                            {task.stopsSummary && (
-                              <span className="text-slate-500"> ({task.stopsSummary})</span>
-                            )}
-                            <span className="text-slate-400"> • </span>
-                            <span className="font-semibold text-slate-700">
-                              {task.temperatureRequirement}
-                            </span>
-                          </div>
-
-                          {/* Reefer / Target verified banner */}
-                          {task.vehicle.tempType === 'REEFER' && !isIssue && (
-                            <div className="flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-white border border-sky-200 text-[11px] font-semibold text-sky-900">
-                              <Snowflake className="w-3.5 h-3.5 text-sky-600" />
-                              <span>Set Target: Chilled +4°C / Frozen -18°C Verified</span>
-                            </div>
-                          )}
-
-                          {/* Discrepancy Alert Banner */}
-                          {isIssue && (
-                            <div className="p-2.5 rounded-lg bg-rose-100/80 border border-rose-300 text-xs text-rose-900 flex items-start space-x-2">
-                              <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
-                              <div>
-                                <span className="font-bold text-rose-950">
+                          {/* 3. Status-Specific Region (Consistent min-height on tablet/desktop so progress & CTA align) */}
+                          <div className="mt-2 min-h-0 sm:min-h-[48px] lg:min-h-[52px] flex items-center">
+                            {isIssue ? (
+                              <div className="w-full p-2.5 rounded-lg bg-rose-100/80 border border-rose-300 text-xs text-rose-900 flex items-start space-x-2">
+                                <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0 mt-0.5" />
+                                <span className="font-bold text-rose-950 line-clamp-2">
                                   {task.issue?.description || 'Carton damage: Waiting for authorization'}
                                 </span>
                               </div>
-                            </div>
-                          )}
-
-                          {/* Ready for Dispatch Note */}
-                          {isReady && (
-                            <div className="space-y-1 text-xs text-slate-600">
-                              <p className="font-medium">
-                                Seal: #{task.sealNumber || 'SL-9942'} • Driver: {task.driver?.name || 'N. Perera'}
-                              </p>
-                              <div className="flex items-center space-x-1 text-blue-700 font-semibold text-[11px]">
-                                <ShieldCheck className="w-3.5 h-3.5" />
-                                <span>Manifest signed & digital dispatch clearance issued</span>
+                            ) : isReady ? (
+                              <div className="w-full p-2 rounded-lg bg-blue-50/80 border border-blue-200 text-xs text-slate-700 space-y-1">
+                                <p className="font-medium truncate">
+                                  Seal: #{task.sealNumber || 'SL-9942'} • Driver: {task.driver?.name || 'N. Perera'}
+                                </p>
+                                <div className="flex items-center space-x-1 text-blue-700 font-semibold text-[11px]">
+                                  <ShieldCheck className="w-3.5 h-3.5 flex-shrink-0" />
+                                  <span className="truncate">Digital dispatch clearance issued</span>
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            ) : task.vehicle.tempType === 'REEFER' ? (
+                              <div className="w-full flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md bg-white border border-sky-200 text-[11px] font-semibold text-sky-900">
+                                <Snowflake className="w-3.5 h-3.5 text-sky-600 flex-shrink-0" />
+                                <span className="truncate">Set Target: Chilled +4°C / Frozen -18°C Verified</span>
+                              </div>
+                            ) : (
+                              <div className="w-full flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md bg-white/70 border border-slate-200 text-[11px] font-semibold text-slate-600">
+                                <Package className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                                <span className="truncate">Ambient cargo hold: Dry freight staging</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
-                        {/* Progress Bar Section */}
-                        <div className="space-y-1.5">
+                        {/* 4. Progress Bar Section */}
+                        <div className="space-y-1.5 mt-3">
                           <div className="flex items-center justify-between text-xs font-semibold">
                             <span className="text-slate-600">{task.progress.label}</span>
                             <span
                               className={
                                 isIssue
-                                  ? 'text-rose-700'
+                                  ? 'text-rose-700 font-bold'
                                   : isReady
                                     ? 'text-slate-900 font-bold'
-                                    : 'text-sky-700'
+                                    : 'text-sky-700 font-bold'
                               }
                             >
                               {task.progress.loadedItems} / {task.progress.totalItems} items ({task.progress.percentage}%)
@@ -513,13 +536,13 @@ export const LoaderDashboard: React.FC = () => {
                           </div>
                         </div>
 
-                        {/* Action Button */}
-                        <div>
+                        {/* 5. Action Button Section (mt-auto ensures aligned bottom baseline across row) */}
+                        <div className="mt-auto pt-3">
                           {isNotStarted && (
                             <button
                               id={`start-loading-btn-${task.id}`}
                               onClick={() => navigate(`/loader/tasks/${task.id}`)}
-                              className="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center space-x-2 shadow-md active:scale-[0.99] transition"
+                              className="w-full h-11 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center space-x-2 shadow-md active:scale-[0.99] transition cursor-pointer"
                             >
                               <span>▶ Start Loading</span>
                               <ChevronRight className="w-4 h-4" />
@@ -530,7 +553,7 @@ export const LoaderDashboard: React.FC = () => {
                             <button
                               id={`continue-loading-btn-${task.id}`}
                               onClick={() => navigate(`/loader/tasks/${task.id}`)}
-                              className="w-full py-3 px-4 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center space-x-2 shadow-md active:scale-[0.99] transition"
+                              className="w-full h-11 px-4 rounded-xl bg-sky-700 hover:bg-sky-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center space-x-2 shadow-md active:scale-[0.99] transition cursor-pointer"
                             >
                               <Layers className="w-4 h-4" />
                               <span>Continue Loading →</span>
@@ -541,7 +564,7 @@ export const LoaderDashboard: React.FC = () => {
                             <button
                               id={`review-issue-btn-${task.id}`}
                               onClick={() => navigate(`/loader/tasks/${task.id}`)}
-                              className="w-full py-2.5 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 font-bold text-xs sm:text-sm flex items-center justify-center space-x-2 transition"
+                              className="w-full h-11 px-4 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-300 font-bold text-xs sm:text-sm flex items-center justify-center space-x-2 transition cursor-pointer"
                             >
                               <AlertTriangle className="w-4 h-4 text-rose-600" />
                               <span>Review Issue & Re-scan</span>
@@ -552,7 +575,7 @@ export const LoaderDashboard: React.FC = () => {
                             <button
                               id={`view-manifest-btn-${task.id}`}
                               onClick={() => navigate(`/loader/tasks/${task.id}`)}
-                              className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold text-xs sm:text-sm flex items-center justify-center space-x-2 transition"
+                              className="w-full h-11 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 font-bold text-xs sm:text-sm flex items-center justify-center space-x-2 transition cursor-pointer"
                             >
                               <ShieldCheck className="w-4 h-4 text-slate-600" />
                               <span>View Locked Manifest</span>
@@ -568,54 +591,44 @@ export const LoaderDashboard: React.FC = () => {
           )}
         </div>
 
-        {/* Floating Action Button: Scan Bay / Parcel */}
-        <div className="fixed sm:absolute bottom-16 right-4 sm:right-6 z-30">
+        {/* Mobile Bottom Navigation Bar (Hidden on desktop/tablet md+ since top header provides global navigation) */}
+        <div className="md:hidden border-t border-slate-200 bg-white/95 backdrop-blur px-6 py-2.5 flex items-center justify-around text-xs font-semibold text-slate-500 z-30 fixed bottom-0 left-0 right-0 shadow-lg">
           <button
-            id="fab-scan-bay-parcel"
+            id="mobile-nav-tasks"
+            onClick={() => setActiveTab('ALL')}
+            className={`flex flex-col items-center space-y-0.5 transition ${
+              activeTab === 'ALL' ? 'text-sky-700 font-bold' : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <ListTodo className="w-5 h-5" />
+            <span className="text-[11px]">Tasks</span>
+          </button>
+          <button
+            id="mobile-nav-current-load"
             onClick={() => {
-              if (filteredTasks.length > 0) {
-                navigate(`/loader/tasks/${filteredTasks[0].id}`);
+              if (data && data.tasks.length > 0) {
+                navigate(`/loader/tasks/${data.tasks[0].id}`);
               }
             }}
-            className="flex items-center space-x-2 px-4 py-3 rounded-full bg-slate-900 text-white shadow-xl hover:bg-slate-800 border border-slate-700 active:scale-95 transition"
-            title="Scan Bay or Parcel Barcode"
-          >
-            <QrCode className="w-5 h-5 text-sky-400" />
-            <span className="font-bold text-xs sm:text-sm tracking-wide">Scan Bay / Parcel</span>
-          </button>
-        </div>
-
-        {/* Tablet / Mobile Bottom Navigation Bar */}
-        <div className="border-t border-slate-200 bg-white px-6 py-2.5 flex items-center justify-around text-xs font-semibold text-slate-500 z-20">
-          <button className="flex flex-col items-center text-sky-700 space-y-0.5">
-            <ListTodo className="w-5 h-5" />
-            <span className="text-[11px] font-bold">Tasks</span>
-          </button>
-          <button
-            onClick={() => {}}
-            className="flex flex-col items-center hover:text-slate-800 space-y-0.5 transition"
+            className="flex flex-col items-center space-y-0.5 transition text-slate-600 hover:text-slate-900"
           >
             <Truck className="w-5 h-5" />
-            <span className="text-[11px]">Vehicles</span>
+            <span className="text-[11px]">Current Load</span>
           </button>
           <button
-            onClick={() => setActiveTab('LOADING')}
-            className="flex flex-col items-center hover:text-slate-800 space-y-0.5 transition relative"
+            id="mobile-nav-issues"
+            onClick={() => setActiveTab('ISSUES')}
+            className={`flex flex-col items-center space-y-0.5 transition relative ${
+              activeTab === 'ISSUES' ? 'text-rose-700 font-bold' : 'text-slate-600 hover:text-slate-900'
+            }`}
           >
             <div className="relative">
-              <AlertTriangle className="w-5 h-5 text-rose-600" />
-              {data && data.summary.discrepancies > 0 && (
+              <AlertTriangle className={`w-5 h-5 ${activeTab === 'ISSUES' ? 'text-rose-700' : 'text-rose-600'}`} />
+              {issueCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-rose-600" />
               )}
             </div>
-            <span className="text-[11px] text-rose-700 font-bold">Issues</span>
-          </button>
-          <button
-            onClick={() => {}}
-            className="flex flex-col items-center hover:text-slate-800 space-y-0.5 transition"
-          >
-            <User className="w-5 h-5" />
-            <span className="text-[11px]">Profile</span>
+            <span className="text-[11px]">Issues</span>
           </button>
         </div>
       </div>

@@ -28,7 +28,6 @@ export const LoadingIssueReport: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<boolean>(false);
-  const [photoRetakeNotice, setPhotoRetakeNotice] = useState<string | null>(null);
 
   // Load context from API
   useEffect(() => {
@@ -511,35 +510,10 @@ export const LoadingIssueReport: React.FC = () => {
                   </span>
                   <span style={styles.greenCheckBadge}>✓</span>
                 </div>
-                <p style={styles.photoMetaText}>1.6 MB • Mock Attachment • Timestamp 05:48 AM</p>
+                <p style={styles.photoMetaText}>1.6 MB • Mock Attachment • Hardware camera integration offline</p>
               </div>
             </div>
-            <button
-              type="button"
-              style={styles.retakeButton}
-              onClick={() => {
-                setPhotoRetakeNotice('Camera capture refreshed (Simulated UI).');
-                setTimeout(() => setPhotoRetakeNotice(null), 2500);
-              }}
-            >
-              📷 Retake (Simulated)
-            </button>
           </div>
-
-          {photoRetakeNotice && (
-            <div style={styles.photoNoticeToast}>{photoRetakeNotice}</div>
-          )}
-
-          <button
-            type="button"
-            style={styles.addSecondAngleButton}
-            onClick={() => {
-              setPhotoRetakeNotice('Secondary angle camera simulator ready (Simulated UI).');
-              setTimeout(() => setPhotoRetakeNotice(null), 2500);
-            }}
-          >
-            📷 Add Second Angle (Simulated UI)
-          </button>
         </div>
 
         {/* Section: Dispatch Review Required */}
@@ -612,8 +586,9 @@ const styles: Record<string, React.CSSProperties> = {
   page: {
     backgroundColor: '#f8fafc',
     minHeight: '100vh',
-    padding: '16px 16px 60px 16px',
-    maxWidth: '560px',
+    padding: '16px 20px 80px 20px',
+    maxWidth: '900px',
+    width: '100%',
     margin: '0 auto',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     color: '#0f172a',
@@ -884,10 +859,15 @@ const styles: Record<string, React.CSSProperties> = {
   issueTypeCard: {
     backgroundColor: '#f8fafc',
     border: '1px solid #e2e8f0',
-    borderRadius: '10px',
+    borderRadius: '12px',
     padding: '12px',
     cursor: 'pointer',
     transition: 'all 0.15s ease-in-out',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'space-between',
+    minHeight: '96px',
+    boxSizing: 'border-box',
   },
   issueTypeCardSelected: {
     backgroundColor: '#0c1b29',
@@ -1192,22 +1172,30 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: '#0c1b29',
     color: '#ffffff',
     border: 'none',
-    borderRadius: '10px',
-    padding: '14px',
+    borderRadius: '12px',
+    padding: '12px 16px',
+    minHeight: '48px',
     fontSize: '14px',
     fontWeight: 700,
     cursor: 'pointer',
     boxShadow: '0 2px 4px rgba(12, 27, 41, 0.2)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cancelButton: {
     backgroundColor: 'transparent',
     color: '#64748b',
     border: 'none',
-    padding: '8px',
-    fontSize: '12px',
+    padding: '10px 16px',
+    minHeight: '40px',
+    fontSize: '13px',
     fontWeight: 600,
     cursor: 'pointer',
     textAlign: 'center',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stateContainer: {
     display: 'flex',

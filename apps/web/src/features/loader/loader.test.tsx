@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -1625,5 +1625,242 @@ describe('Loader Feature 4: LS-07 Loading Review & Ready for Dispatch', () => {
       expect(screen.getByText('Dispatcher Portal')).toBeDefined();
       expect(screen.queryByText('7. Loading Review & Dispatch Ready')).toBeNull();
     });
+  });
+});
+
+describe('Loader Portal: Responsive UX & Interaction Stabilization', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    sessionStorage.clear();
+    sessionStorage.setItem('waypoint_token', 'valid-loader-token');
+    sessionStorage.setItem(
+      'waypoint_user',
+      JSON.stringify({
+        id: 'loader-1',
+        email: 'loader@waypoint.local',
+        role: UserRole.LOADER,
+        name: 'D. Jayasuriya',
+      })
+    );
+  });
+
+  // 1. LS-02 Issues tab filters to issues
+  it('1. filters tasks specifically by Issues filter tab', async () => {
+    vi.spyOn(api, 'fetchLoadingTasks').mockResolvedValue(mockTasksData);
+
+    renderLoaderApp('/loader');
+
+    await waitFor(() => {
+      expect(screen.getByText("Today's Loading Tasks")).toBeDefined();
+    });
+
+    const issuesTabBtn = document.getElementById('filter-issues');
+    expect(issuesTabBtn).toBeDefined();
+    if (issuesTabBtn) {
+      fireEvent.click(issuesTabBtn);
+    }
+
+    // Only Hino 3T Van (ISSUE_REPORTED) should be displayed
+    expect(screen.getByText('Hino 3T Van')).toBeDefined();
+    expect(screen.queryByText('Isuzu 4T Reefer')).toBeNull();
+    expect(screen.queryByText('Toyota HiAce Van (WP-PX-1290)')).toBeNull();
+  });
+
+  // 2. LS-02 Mobile bottom navigation buttons switch active views
+  it('2. mobile navigation buttons switch view to All and Issues', async () => {
+    vi.spyOn(api, 'fetchLoadingTasks').mockResolvedValue(mockTasksData);
+
+    renderLoaderApp('/loader');
+
+    await waitFor(() => {
+      expect(screen.getByText("Today's Loading Tasks")).toBeDefined();
+    });
+
+    const mobileIssuesBtn = document.getElementById('mobile-nav-issues');
+    expect(mobileIssuesBtn).toBeDefined();
+    if (mobileIssuesBtn) {
+      fireEvent.click(mobileIssuesBtn);
+    }
+    expect(screen.getByText('Hino 3T Van')).toBeDefined();
+    expect(screen.queryByText('Isuzu 4T Reefer')).toBeNull();
+
+    const mobileTasksBtn = document.getElementById('mobile-nav-tasks');
+    expect(mobileTasksBtn).toBeDefined();
+    if (mobileTasksBtn) {
+      fireEvent.click(mobileTasksBtn);
+    }
+    expect(screen.getByText('Isuzu 4T Reefer')).toBeDefined();
+  });
+
+  // 3. LS-03 verify fake sensor button is removed
+  it('3. verifies fake telematics sensor button is removed from LS-03', async () => {
+    vi.spyOn(api, 'fetchVehicleLoadingDetails').mockResolvedValue(mockTripDetails);
+
+    renderLoaderApp('/loader/tasks/trip-001');
+
+    await waitFor(() => {
+      expect(screen.getByText('3. Vehicle Loading Details')).toBeDefined();
+    });
+
+    expect(screen.queryByText(/Inspect Reefer Telematics & Bay Sensors/i)).toBeNull();
+    expect(document.getElementById('inspect-sensors-btn')).toBeNull();
+  });
+
+  // 4. LS-04 stop expandable toggle opens and closes SKU items
+  it('4. toggles stop cards details expansion in LS-04', async () => {
+    vi.spyOn(api, 'fetchLoadingSequence').mockResolvedValue(mockSequenceData);
+
+    renderLoaderApp('/loader/tasks/trip-001/sequence');
+
+    await waitFor(() => {
+      expect(screen.getByText('4. Loading Sequence')).toBeDefined();
+    });
+
+    // Initially stops are expanded by default
+    expect(screen.getByText('Keells Frozen Chicken Breasts')).toBeDefined();
+
+    const hideButtons = screen.getAllByRole('button', { name: /Hide Details/i });
+    expect(hideButtons.length).toBeGreaterThan(0);
+
+    // Collapse first stop
+    fireEvent.click(hideButtons[0]);
+    expect(screen.queryByText('Keells Frozen Chicken Breasts')).toBeNull();
+
+    // Re-expand first stop
+    const showButton = screen.getByRole('button', { name: /^Details/i });
+    fireEvent.click(showButton);
+    expect(screen.getByText('Keells Frozen Chicken Breasts')).toBeDefined();
+  });
+
+  // 5. LS-05 disabled scanner button does not trigger action
+  it('5. confirms LS-05 scanner offline control is disabled', async () => {
+    vi.spyOn(api, 'fetchLoadingChecklist').mockResolvedValue(mockChecklistData);
+
+    renderLoaderApp('/loader/tasks/trip-001/checklist');
+
+    await waitFor(() => {
+      expect(screen.getByText('5. Item Loading Checklist')).toBeDefined();
+    });
+
+    const scannerBtn = screen.getByRole('button', { name: /scanner offline/i });
+    expect((scannerBtn as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('STANDBY')).toBeDefined();
+  });
+
+  // 6. LS-06 photo section has no fake interactive buttons
+  it('6. verifies LS-06 photo section has no fake interactive camera buttons', async () => {
+    vi.spyOn(api, 'fetchLoadingIssueContext').mockResolvedValue(mockIssueContextData);
+
+    renderLoaderApp('/loader/tasks/trip-001/issues/new?itemId=item-001');
+
+    await waitFor(() => {
+      expect(screen.getByText('6. Report Loading Issue')).toBeDefined();
+    });
+
+    expect(screen.queryByText(/Retake \(Simulated\)/i)).toBeNull();
+    expect(screen.queryByText(/Add Second Angle/i)).toBeNull();
+    expect(screen.getByText(/Hardware camera integration offline/i)).toBeDefined();
+  });
+
+  // 7. Full workflow click-through without URL typing
+  it('7. verifies full sequential Loader workflow navigation through UI buttons', async () => {
+    vi.spyOn(api, 'fetchLoadingTasks').mockResolvedValue(mockTasksData);
+    vi.spyOn(api, 'fetchVehicleLoadingDetails').mockResolvedValue(mockTripDetails);
+    vi.spyOn(api, 'fetchLoadingSequence').mockResolvedValue(mockSequenceData);
+    vi.spyOn(api, 'fetchLoadingChecklist').mockResolvedValue(mockChecklistData);
+    vi.spyOn(api, 'fetchLoadingReview').mockResolvedValue(mockReviewData);
+
+    // 1. Dashboard (LS-02)
+    renderLoaderApp('/loader');
+    await waitFor(() => {
+      expect(screen.getByText('▶ Start Loading')).toBeDefined();
+    });
+
+    // 2. Click Start Loading -> LS-03
+    fireEvent.click(screen.getByText('▶ Start Loading'));
+    await waitFor(() => {
+      expect(screen.getByText('3. Vehicle Loading Details')).toBeDefined();
+      expect(screen.getByText('View Loading Sequence & Marshalling Plan')).toBeDefined();
+    });
+
+    // 3. Click View Loading Sequence -> LS-04
+    fireEvent.click(screen.getByText('View Loading Sequence & Marshalling Plan'));
+    await waitFor(() => {
+      expect(screen.getByText('4. Loading Sequence')).toBeDefined();
+      expect(screen.getByText(/Start Item Checklist/i)).toBeDefined();
+    });
+
+    // 4. Click Start Item Checklist -> LS-05
+    fireEvent.click(screen.getByText(/Start Item Checklist/i));
+    await waitFor(() => {
+      expect(screen.getByText('5. Item Loading Checklist')).toBeDefined();
+      expect(screen.getByText(/Review Loading/i)).toBeDefined();
+    });
+
+    // 5. Click Review Loading -> LS-07
+    fireEvent.click(screen.getByText(/Review Loading/i));
+    await waitFor(() => {
+      expect(screen.getByText('7. Loading Review & Dispatch Ready')).toBeDefined();
+      expect(screen.getByRole('button', { name: /Confirm Ready for Dispatch/i })).toBeDefined();
+    });
+  });
+});
+
+describe('Loader Portal: Visual Consistency & Card Alignment Audit', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('1. verifies LS-02 task cards maintain standard structural regions, flex-1 details, and aligned CTAs', async () => {
+    vi.spyOn(api, 'fetchLoadingTasks').mockResolvedValue(mockTasksData);
+    renderLoaderApp('/loader');
+
+    await waitFor(() => {
+      expect(screen.getByText("Today's Loading Tasks")).toBeDefined();
+    });
+
+    const taskCardsList = document.getElementById('loading-tasks-list');
+    expect(taskCardsList).toBeDefined();
+    expect(taskCardsList?.className).toContain('items-stretch');
+
+    // Check task card container has flex flex-col h-full
+    const firstTaskCard = document.getElementById('task-card-trip-001');
+    expect(firstTaskCard).toBeDefined();
+    expect(firstTaskCard?.className).toContain('flex');
+    expect(firstTaskCard?.className).toContain('flex-col');
+    expect(firstTaskCard?.className).toContain('h-full');
+
+    // Check CTA button has standardized height h-11 and cursor-pointer
+    const startBtn = document.getElementById('start-loading-btn-trip-001');
+    expect(startBtn).toBeDefined();
+    expect(startBtn?.className).toContain('h-11');
+    expect(startBtn?.className).toContain('cursor-pointer');
+  });
+
+  it('2. verifies LS-02 top summary cards use items-stretch and equal height flex layout', async () => {
+    vi.spyOn(api, 'fetchLoadingTasks').mockResolvedValue(mockTasksData);
+    renderLoaderApp('/loader');
+
+    await waitFor(() => {
+      expect(screen.getByText('Vehicles to Load')).toBeDefined();
+    });
+
+    const summarySection = document.getElementById('loading-summary-section');
+    expect(summarySection?.className).toContain('items-stretch');
+
+    const vehiclesToLoadStat = document.getElementById('summary-vehicles-to-load');
+    expect(vehiclesToLoadStat).toBeDefined();
+  });
+
+  it('3. verifies LS-03 capacity specifications grid uses items-stretch and equal height cards', async () => {
+    vi.spyOn(api, 'fetchVehicleLoadingDetails').mockResolvedValue(mockTripDetails);
+    renderLoaderApp('/loader/tasks/trip-001');
+
+    await waitFor(() => {
+      expect(screen.getByText('WEIGHT LOAD')).toBeDefined();
+    });
+
+    const capacitiesGrid = document.getElementById('vehicle-capacities-grid');
+    expect(capacitiesGrid?.className).toContain('items-stretch');
   });
 });

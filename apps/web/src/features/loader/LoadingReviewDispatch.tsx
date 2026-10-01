@@ -218,8 +218,12 @@ export const LoadingReviewDispatch: React.FC = () => {
         </div>
       )}
 
-      {/* Vehicle & Cargo Manifest Fill Card */}
-      <div style={styles.contextCard}>
+      {/* Responsive Two-Column Grid on Desktop */}
+      <div style={styles.reviewContentGrid}>
+        {/* Left Column: Vehicle & Payload Specs */}
+        <div style={styles.leftColumn}>
+          {/* Vehicle & Cargo Manifest Fill Card */}
+          <div style={styles.contextCard}>
         <div style={styles.vehicleHeaderRow}>
           <div style={styles.vehicleInfoGroup}>
             <div style={styles.truckIconCircle}>🚚</div>
@@ -399,9 +403,13 @@ export const LoadingReviewDispatch: React.FC = () => {
         </div>
       </div>
 
-      {/* Section: Sequence Audit (Reverse Loaded) */}
-      <div style={styles.sectionHeaderRow}>
-        <h3 style={styles.sectionTitle}>Sequence Audit (Reverse Loaded)</h3>
+        </div>
+
+        {/* Right Column: Sequence, Checklist & Actions */}
+        <div style={styles.rightColumn}>
+          {/* Section: Sequence Audit (Reverse Loaded) */}
+          <div style={styles.sectionHeaderRow}>
+            <h3 style={styles.sectionTitle}>Sequence Audit (Reverse Loaded)</h3>
         <span style={styles.dropsPill}>{stops.length} Drops</span>
       </div>
 
@@ -495,6 +503,8 @@ export const LoadingReviewDispatch: React.FC = () => {
           ← Back to Today's Tasks
         </button>
       </div>
+      </div>
+      </div>
 
       {/* Confirmation Modal */}
       {showConfirmModal && (
@@ -550,8 +560,9 @@ const styles: Record<string, React.CSSProperties> = {
   page: {
     backgroundColor: '#f8fafc',
     minHeight: '100vh',
-    padding: '16px 16px 80px 16px',
-    maxWidth: '560px',
+    padding: '16px 20px 80px 20px',
+    maxWidth: '1280px',
+    width: '100%',
     margin: '0 auto',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     color: '#0f172a',
@@ -962,7 +973,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   telematicsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
     gap: '8px',
     marginBottom: '14px',
   },
@@ -1187,19 +1198,24 @@ const styles: Record<string, React.CSSProperties> = {
     color: '#ffffff',
     border: 'none',
     borderRadius: '12px',
-    padding: '14px',
+    padding: '12px 16px',
+    minHeight: '48px',
     fontSize: '14px',
     fontWeight: 800,
     cursor: 'pointer',
     boxShadow: '0 4px 6px rgba(2, 132, 199, 0.25)',
     textAlign: 'center',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   completedBadgeBox: {
     backgroundColor: '#ecfdf5',
     border: '1px solid #a7f3d0',
     color: '#065f46',
     borderRadius: '12px',
-    padding: '14px',
+    padding: '12px 16px',
+    minHeight: '48px',
     fontSize: '13px',
     fontWeight: 800,
     display: 'flex',
@@ -1219,7 +1235,8 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid #fecaca',
     color: '#991b1b',
     borderRadius: '12px',
-    padding: '12px',
+    padding: '12px 16px',
+    minHeight: '48px',
     fontSize: '12px',
     fontWeight: 700,
     display: 'flex',
@@ -1237,11 +1254,15 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: 'transparent',
     color: '#64748b',
     border: 'none',
-    padding: '8px',
-    fontSize: '12px',
+    padding: '10px 16px',
+    minHeight: '40px',
+    fontSize: '13px',
     fontWeight: 600,
     cursor: 'pointer',
     textAlign: 'center',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stateContainer: {
     display: 'flex',

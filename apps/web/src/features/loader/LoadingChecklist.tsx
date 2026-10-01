@@ -482,7 +482,9 @@ export const LoadingChecklist: React.FC = () => {
         })}
       </div>
 
-      {/* Barcode Scanner Info Box (Hardware Standby / Non-functional in Demo) */}
+
+
+      {/* Barcode Scanner Info Box (Clearly Disabled Informational UI) */}
       <div style={styles.barcodeScannerCard}>
         <div style={styles.scannerLeftCol}>
           <span style={styles.barcodeIcon}>📷</span>
@@ -491,7 +493,9 @@ export const LoadingChecklist: React.FC = () => {
               <span style={styles.scannerTitle}>Laser Barcode Scanner</span>
               <span style={styles.scannerStandbyBadge}>STANDBY</span>
             </div>
-            <p style={styles.scannerSubtitle}>Hardware scanner terminal offline • Use manual checklist confirmation</p>
+            <p style={styles.scannerSubtitle}>
+              Hardware scanner offline • Barcode hardware integration unavailable in this release
+            </p>
           </div>
         </div>
         <button
@@ -522,9 +526,10 @@ export const LoadingChecklist: React.FC = () => {
 
 const styles: Record<string, React.CSSProperties> = {
   page: {
-    maxWidth: '560px',
+    maxWidth: '1280px',
+    width: '100%',
     margin: '0 auto',
-    padding: '16px 16px 100px 16px',
+    padding: '16px 20px 120px 20px',
     backgroundColor: '#f8fafc',
     minHeight: '100vh',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -532,7 +537,8 @@ const styles: Record<string, React.CSSProperties> = {
     boxSizing: 'border-box',
   },
   stateContainer: {
-    maxWidth: '560px',
+    maxWidth: '800px',
+    width: '100%',
     margin: '40px auto',
     padding: '32px 20px',
     textAlign: 'center',
@@ -966,10 +972,14 @@ const styles: Record<string, React.CSSProperties> = {
     border: 'none',
     borderRadius: '8px',
     padding: '8px 12px',
+    minHeight: '40px',
     fontSize: '12px',
     fontWeight: 700,
     cursor: 'pointer',
     textAlign: 'center',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   confirmLoadedButton: {
     backgroundColor: '#e0f2fe',
@@ -977,10 +987,14 @@ const styles: Record<string, React.CSSProperties> = {
     border: '1px solid #bae6fd',
     borderRadius: '8px',
     padding: '9px 12px',
+    minHeight: '40px',
     fontSize: '13px',
     fontWeight: 700,
     cursor: 'pointer',
     textAlign: 'center',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loadedActionsGroup: {
     display: 'flex',
@@ -1057,10 +1071,10 @@ const styles: Record<string, React.CSSProperties> = {
     left: '50%',
     transform: 'translateX(-50%)',
     width: '100%',
-    maxWidth: '560px',
+    maxWidth: '1280px',
     backgroundColor: '#ffffff',
     borderTop: '1px solid #e2e8f0',
-    padding: '10px 16px',
+    padding: '12px 20px',
     boxSizing: 'border-box',
     display: 'flex',
     alignItems: 'center',
@@ -1072,25 +1086,33 @@ const styles: Record<string, React.CSSProperties> = {
     backgroundColor: '#f1f5f9',
     color: '#334155',
     border: '1px solid #cbd5e1',
-    borderRadius: '10px',
+    borderRadius: '12px',
     padding: '12px 16px',
+    minHeight: '48px',
     fontSize: '13px',
     fontWeight: 700,
     cursor: 'pointer',
     flex: 1,
     whiteSpace: 'nowrap',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   primaryActionButton: {
     backgroundColor: '#0c1b29',
     color: '#ffffff',
     border: 'none',
-    borderRadius: '10px',
+    borderRadius: '12px',
     padding: '12px 16px',
-    fontSize: '13px',
+    minHeight: '48px',
+    fontSize: '14px',
     fontWeight: 700,
     cursor: 'pointer',
     flex: 2,
     textAlign: 'center',
     whiteSpace: 'nowrap',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 };
