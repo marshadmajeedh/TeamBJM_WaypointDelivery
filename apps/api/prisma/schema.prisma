@@ -84,6 +84,7 @@ model User {
   loadingRecords       LoadingRecord[]
   deliveries           Delivery[]
   receiptConfirmations ReceiptConfirmation[]
+  auditEvents          AuditEvent[]
 }
 
 model Outlet {
@@ -269,6 +270,20 @@ model ReceiptConfirmation {
   confirmedAt       DateTime @default(now())
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+model AuditEvent {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
 }
 
 model SyncRecord {

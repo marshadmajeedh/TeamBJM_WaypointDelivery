@@ -47,6 +47,8 @@ export const dispatcherService = {
     repeatedDeferrals.forEach(order=>alerts.push({id:`deferral-${order.id}`,type:'REPEAT_DEFERRAL',severity:'HIGH',title:'Repeated deferral warning',message:`${order.orderNumber} has been deferred ${order.deferralCount} times`,entity:order.orderNumber}));
     return alerts.sort((a,b)=>a.severity===b.severity?0:a.severity==='HIGH'?-1:1);
   },
+  async audit(userId:string,action:string,entityType:string,entityId:string|null,details:Prisma.InputJsonValue){return prisma.auditEvent.create({data:{userId,action,entityType,entityId,details}})},
+  async audits(){return prisma.auditEvent.findMany({take:30,orderBy:{createdAt:'desc'},include:{user:{select:{name:true,email:true,role:true}}}})},
   async orders(status:'CONFIRMED'|'DEFERRED'='CONFIRMED') { return (await prisma.order.findMany({where:{status},include:orderInclude,orderBy:[{requestedDeliveryDate:'asc'},{createdAt:'asc'}]})).map(mapOrder); },
   async order(id:string) { const row=await prisma.order.findUnique({where:{id},include:orderInclude}); return row?mapOrder(row):null; },
   async vehicles(date=new Date()):Promise<PlanningVehicle[]> { const {start,end}=range(date); const [vehicles,counts]=await Promise.all([prisma.vehicle.findMany(),prisma.trip.groupBy({by:['vehicleId'],where:{tripDate:{gte:start,lt:end}},_count:true})]); const count=new Map(counts.map(x=>[x.vehicleId,x._count])); return vehicles.map(v=>({id:v.id,registration:v.registrationNumber,depot:v.depotId||'UNASSIGNED',type:v.type,maxWeightKg:v.maxWeightKg,maxVolumeM3:v.maxVolumeM3,refrigerated:v.tempType==='REEFER',weeklyFuelQuotaL:v.weeklyFuelQuotaLiters,fuelUsedThisWeekL:v.currentFuelUsedLiters,estimatedFuelPerTripL:v.type==='VAN'?25:55,available:v.isActive,tripsToday:count.get(v.id)||0})); },

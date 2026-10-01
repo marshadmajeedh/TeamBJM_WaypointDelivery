@@ -10,6 +10,7 @@ describe('DispatcherPortal',()=>{
   beforeEach(()=>{mocked.mockImplementation(async(path:string)=>{
     if(path==='/dashboard')return {confirmed:8,planned:2,deferred:1,activeTrips:3,availableVehicles:6} as never;
     if(path==='/alerts')return [] as never;
+    if(path==='/audits')return [] as never;
     if(path.startsWith('/orders'))return [] as never;
     if(path==='/vehicles')return [] as never;
     if(path==='/trips')return [] as never;
@@ -40,6 +41,17 @@ describe('DispatcherPortal',()=>{
     fireEvent.click(screen.getByRole('button',{name:/Fuel quota warning/}));
     expect(await screen.findByRole('heading',{name:'Fleet & Vehicles',level:1})).toBeDefined();
     expect(mocked).toHaveBeenCalledWith('/vehicles');
+  });
+  it('shows the authenticated Dispatcher audit timeline',async()=>{
+    mocked.mockImplementation(async(path:string)=>{
+      if(path==='/dashboard')return {confirmed:1,planned:1,deferred:0,activeTrips:0,availableVehicles:1} as never;
+      if(path==='/alerts')return [] as never;
+      if(path==='/audits')return [{id:'a1',action:'PLAN_PUBLISHED',entityType:'DeliveryPlan',createdAt:'2026-10-01T08:00:00Z',details:{tripCount:2},user:{name:'M.M.M Munshif',email:'dispatcher@waypoint.lk',role:'DISPATCHER'}}] as never;
+      return [] as never;
+    });
+    render(<DispatcherPortal/>);
+    expect(await screen.findByText('PLAN PUBLISHED')).toBeDefined();
+    expect(screen.getByText(/M.M.M Munshif · DeliveryPlan/)).toBeDefined();
   });
   it('navigates to the confirmed-order queue',async()=>{render(<DispatcherPortal/>);fireEvent.click(screen.getByRole('button',{name:'Confirmed Orders'}));await waitFor(()=>expect(screen.getByText('Confirmed Orders Queue')).toBeDefined());expect(mocked).toHaveBeenCalledWith('/orders');});
   it('filters confirmed orders and resets the planning filters',async()=>{
