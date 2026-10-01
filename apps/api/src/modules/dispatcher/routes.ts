@@ -9,6 +9,7 @@ export const dispatcherRouter = Router();
 dispatcherRouter.use(authenticate, authorizeRoles(UserRole.DISPATCHER));
 
 dispatcherRouter.get('/dashboard', async (_req,res) => sendSuccess(res,await dispatcherService.dashboard()));
+dispatcherRouter.get('/alerts', async (_req,res) => sendSuccess(res,await dispatcherService.alerts()));
 dispatcherRouter.get('/orders', async (req,res) => sendSuccess(res,await dispatcherService.orders(req.query.status==='DEFERRED'?'DEFERRED':'CONFIRMED')));
 dispatcherRouter.get('/orders/:id', async (req,res) => { const order=await dispatcherService.order(req.params.id); return order?sendSuccess(res,order):sendError(res,'NOT_FOUND','Order not found',404); });
 dispatcherRouter.get('/vehicles', async (_req,res) => sendSuccess(res,await dispatcherService.vehicles()));

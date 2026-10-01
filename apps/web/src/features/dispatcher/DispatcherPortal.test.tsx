@@ -9,12 +9,26 @@ const mocked=vi.mocked(dispatcherApi);
 describe('DispatcherPortal',()=>{
   beforeEach(()=>{mocked.mockImplementation(async(path:string)=>{
     if(path==='/dashboard')return {confirmed:8,planned:2,deferred:1,activeTrips:3,availableVehicles:6} as never;
+    if(path==='/alerts')return [] as never;
     if(path.startsWith('/orders'))return [] as never;
     if(path==='/vehicles')return [] as never;
     if(path==='/trips')return [] as never;
     return {} as never;
   })});
   it('renders live dashboard metrics from the Dispatcher API',async()=>{render(<DispatcherPortal/>);await waitFor(()=>expect(screen.getByText('8')).toBeDefined());expect(screen.getAllByText('Confirmed Orders').length).toBeGreaterThan(0);});
+  it('shows operational alerts and routes the dispatcher to resolution',async()=>{
+    mocked.mockImplementation(async(path:string)=>{
+      if(path==='/dashboard')return {confirmed:8,planned:2,deferred:1,activeTrips:3,availableVehicles:6} as never;
+      if(path==='/alerts')return [{id:'fuel-v1',type:'FUEL_WARNING',severity:'MEDIUM',title:'Fuel quota warning',message:'VEH014 has used 85% of its weekly quota',entity:'VEH014'}] as never;
+      if(path==='/vehicles')return [] as never;
+      return [] as never;
+    });
+    render(<DispatcherPortal/>);
+    expect(await screen.findByText('Fuel quota warning')).toBeDefined();
+    fireEvent.click(screen.getByRole('button',{name:/Fuel quota warning/}));
+    expect(await screen.findByRole('heading',{name:'Fleet & Vehicles',level:1})).toBeDefined();
+    expect(mocked).toHaveBeenCalledWith('/vehicles');
+  });
   it('navigates to the confirmed-order queue',async()=>{render(<DispatcherPortal/>);fireEvent.click(screen.getByRole('button',{name:'Confirmed Orders'}));await waitFor(()=>expect(screen.getByText('Confirmed Orders Queue')).toBeDefined());expect(mocked).toHaveBeenCalledWith('/orders');});
   it('filters confirmed orders and resets the planning filters',async()=>{
     mocked.mockImplementation(async(path:string)=>{

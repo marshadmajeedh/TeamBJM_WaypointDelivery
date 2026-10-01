@@ -4,3 +4,4 @@ export interface DispatchVehicle{id:string;registration:string;registrationNumbe
 export interface AllocationResult{orderId:string;status:'SERVED'|'DEFERRED';assignedVehicleId?:string;tripSequence?:number;deferralReason?:string}
 export interface DispatchTrip{id:string;reference:string;tripNumber:number;status:string;driver:string;coldChain:string;issues:string[];vehicle:{registration:string;refrigerated:boolean};stops:Array<{id:string;sequence:number;eta:string;status:string;order:{reference:string;outletName:string}}>}
 export interface DashboardSummary{confirmed:number;planned:number;deferred:number;activeTrips:number;availableVehicles:number}
+export interface OperationalAlert{id:string;type:'WINDOW_RISK'|'VEHICLE_DELAY'|'REFRIGERATION'|'LOADING_ISSUE'|'FUEL_WARNING'|'REPEAT_DEFERRAL';severity:'HIGH'|'MEDIUM';title:string;message:string;entity:string}

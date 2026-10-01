@@ -16,6 +16,23 @@ function mapOrder(order: FullOrder): PlanningOrder & {status:string;address:stri
 
 export const dispatcherService = {
   async dashboard() { const [confirmed,planned,deferred,activeTrips,availableVehicles]=await Promise.all([prisma.order.count({where:{status:'CONFIRMED'}}),prisma.order.count({where:{status:'PLANNED'}}),prisma.order.count({where:{status:'DEFERRED'}}),prisma.trip.count({where:{status:{in:['LOADING','READY_FOR_DISPATCH','IN_TRANSIT']}}}),prisma.vehicle.count({where:{isActive:true}})]); return {confirmed,planned,deferred,activeTrips,availableVehicles}; },
+  async alerts(now=new Date()) {
+    const horizon=new Date(now.getTime()+2*60*60*1000);
+    const [openOrders,delayedTrips,issues,vehicles,repeatedDeferrals]=await Promise.all([
+      prisma.order.findMany({where:{status:{in:['PLANNED','LOADING','IN_TRANSIT']}},include:{outlet:true}}),
+      prisma.trip.findMany({where:{status:{in:['PLANNED','LOADING','READY_FOR_DISPATCH']},plannedDepartureTime:{lt:now},actualDepartureTime:null},include:{vehicle:true}}),
+      prisma.loadingIssue.findMany({where:{resolved:false},include:{loadingRecord:{include:{trip:{include:{vehicle:true}}}}}}),
+      prisma.vehicle.findMany({where:{isActive:true}}),
+      prisma.order.findMany({where:{status:'DEFERRED',deferralCount:{gte:2}},select:{id:true,orderNumber:true,deferralCount:true}})
+    ]);
+    const alerts:Array<{id:string;type:string;severity:'HIGH'|'MEDIUM';title:string;message:string;entity:string}>=[];
+    openOrders.forEach(order=>{const deadline=atTime(order.requestedDeliveryDate,order.outlet.deliveryWindowEnd,17);if(deadline>=now&&deadline<=horizon)alerts.push({id:`window-${order.id}`,type:'WINDOW_RISK',severity:'HIGH',title:'Delivery window at risk',message:`${order.orderNumber} · ${order.outlet.name} closes within two hours`,entity:order.orderNumber})});
+    delayedTrips.forEach(trip=>alerts.push({id:`delay-${trip.id}`,type:'VEHICLE_DELAY',severity:'HIGH',title:'Vehicle departure delayed',message:`${trip.tripNumber} · ${trip.vehicle.registrationNumber} has not departed`,entity:trip.tripNumber}));
+    issues.forEach(issue=>{const cold=/cold|temp|reefer|refriger/i.test(`${issue.issueType} ${issue.description}`);alerts.push({id:`issue-${issue.id}`,type:cold?'REFRIGERATION':'LOADING_ISSUE',severity:cold?'HIGH':'MEDIUM',title:cold?'Refrigeration issue':'Loading issue',message:`${issue.loadingRecord.trip.tripNumber} · ${issue.description}`,entity:issue.loadingRecord.trip.tripNumber})});
+    vehicles.filter(vehicle=>vehicle.weeklyFuelQuotaLiters>0&&vehicle.currentFuelUsedLiters/vehicle.weeklyFuelQuotaLiters>=.8).forEach(vehicle=>alerts.push({id:`fuel-${vehicle.id}`,type:'FUEL_WARNING',severity:'MEDIUM',title:'Fuel quota warning',message:`${vehicle.registrationNumber} has used ${Math.round(vehicle.currentFuelUsedLiters/vehicle.weeklyFuelQuotaLiters*100)}% of its weekly quota`,entity:vehicle.registrationNumber}));
+    repeatedDeferrals.forEach(order=>alerts.push({id:`deferral-${order.id}`,type:'REPEAT_DEFERRAL',severity:'HIGH',title:'Repeated deferral warning',message:`${order.orderNumber} has been deferred ${order.deferralCount} times`,entity:order.orderNumber}));
+    return alerts.sort((a,b)=>a.severity===b.severity?0:a.severity==='HIGH'?-1:1);
+  },
   async orders(status:'CONFIRMED'|'DEFERRED'='CONFIRMED') { return (await prisma.order.findMany({where:{status},include:orderInclude,orderBy:[{requestedDeliveryDate:'asc'},{createdAt:'asc'}]})).map(mapOrder); },
   async order(id:string) { const row=await prisma.order.findUnique({where:{id},include:orderInclude}); return row?mapOrder(row):null; },
   async vehicles(date=new Date()):Promise<PlanningVehicle[]> { const {start,end}=range(date); const [vehicles,counts]=await Promise.all([prisma.vehicle.findMany(),prisma.trip.groupBy({by:['vehicleId'],where:{tripDate:{gte:start,lt:end}},_count:true})]); const count=new Map(counts.map(x=>[x.vehicleId,x._count])); return vehicles.map(v=>({id:v.id,registration:v.registrationNumber,depot:v.depotId||'UNASSIGNED',type:v.type,maxWeightKg:v.maxWeightKg,maxVolumeM3:v.maxVolumeM3,refrigerated:v.tempType==='REEFER',weeklyFuelQuotaL:v.weeklyFuelQuotaLiters,fuelUsedThisWeekL:v.currentFuelUsedLiters,estimatedFuelPerTripL:v.type==='VAN'?25:55,available:v.isActive,tripsToday:count.get(v.id)||0})); },
