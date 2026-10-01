@@ -31,4 +31,13 @@ dispatcherRouter.post('/plans/publish', async (req,res) => {
   });
   return sendSuccess(res,{trips:created},201);
 });
-dispatcherRouter.patch('/deferred/:id', async (req,res) => { const reason=String(req.body.reason||'').trim(); if(!reason)return sendError(res,'VALIDATION_ERROR','Deferral reason is required',400); return sendSuccess(res,await prisma.order.update({where:{id:req.params.id},data:{status:'DEFERRED',deferralReason:reason}})); });
+dispatcherRouter.patch('/deferred/:id', async (req,res) => {
+  const reason=String(req.body.reason||'').trim(),timeSlot=String(req.body.timeSlot||'').trim(),notes=String(req.body.notes||'').trim();
+  const nextDeliveryDate=new Date(req.body.nextDeliveryDate),priority=Number(req.body.priority),assignedVehicleId=String(req.body.assignedVehicleId||'').trim()||null;
+  if(!reason)return sendError(res,'VALIDATION_ERROR','Deferral reason is required',400);
+  if(Number.isNaN(nextDeliveryDate.getTime()))return sendError(res,'VALIDATION_ERROR','A valid next delivery date is required',400);
+  if(!['MORNING','AFTERNOON','EVENING'].includes(timeSlot))return sendError(res,'VALIDATION_ERROR','Select a valid delivery time slot',400);
+  if(!Number.isInteger(priority)||priority<1||priority>5)return sendError(res,'VALIDATION_ERROR','Priority must be between 1 and 5',400);
+  if(assignedVehicleId&&!await prisma.vehicle.findUnique({where:{id:assignedVehicleId},select:{id:true}}))return sendError(res,'VALIDATION_ERROR','Selected vehicle does not exist',400);
+  return sendSuccess(res,await prisma.order.update({where:{id:req.params.id},data:{status:'DEFERRED',deferralReason:reason,nextDeliveryDate,deferralTimeSlot:timeSlot,deferralPriority:priority,deferredVehicleId:assignedVehicleId,dispatcherNotes:notes||null},include:{deferredVehicle:true}}));
+});

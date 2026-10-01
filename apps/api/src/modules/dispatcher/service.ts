@@ -6,12 +6,12 @@ import { ManualAssignment, PlanningOrder, PlanningVehicle } from '../allocation/
 const tempRank: Record<TemperatureRequirement, number> = { AMBIENT:0, CHILLED:1, FROZEN:2 };
 const atTime = (day: Date, value: string | null, fallback: number) => { const result=new Date(day); const [h,m]=(value||`${fallback}:00`).split(':').map(Number); result.setHours(h,m||0,0,0); return result; };
 const range = (date: Date) => { const start=new Date(date); start.setHours(0,0,0,0); const end=new Date(start); end.setDate(end.getDate()+1); return {start,end}; };
-const orderInclude = { outlet:true, items:true } satisfies Prisma.OrderInclude;
+const orderInclude = { outlet:true, items:true, deferredVehicle:true } satisfies Prisma.OrderInclude;
 type FullOrder = Prisma.OrderGetPayload<{include:typeof orderInclude}>;
 
-function mapOrder(order: FullOrder): PlanningOrder & {status:string;address:string;deferralReason:string|null;deferralCount:number} {
+function mapOrder(order: FullOrder) {
   const temperature=order.items.reduce<TemperatureRequirement>((best,item)=>tempRank[item.tempRequirement]>tempRank[best]?item.tempRequirement:best,'AMBIENT');
-  return { id:order.id,reference:order.orderNumber,outletName:order.outlet.name,depot:order.outlet.depotId||'UNASSIGNED',address:order.outlet.address,windowStart:atTime(order.requestedDeliveryDate,order.outlet.deliveryWindowStart,8),windowEnd:atTime(order.requestedDeliveryDate,order.outlet.deliveryWindowEnd,17),weightKg:order.totalWeightKg,volumeM3:order.totalVolumeM3,temperature,vanOnly:order.outlet.vanOnly,priority:order.deferralCount,status:order.status,deferralReason:order.deferralReason,deferralCount:order.deferralCount };
+  return { id:order.id,reference:order.orderNumber,outletName:order.outlet.name,depot:order.outlet.depotId||'UNASSIGNED',address:order.outlet.address,windowStart:atTime(order.requestedDeliveryDate,order.outlet.deliveryWindowStart,8),windowEnd:atTime(order.requestedDeliveryDate,order.outlet.deliveryWindowEnd,17),weightKg:order.totalWeightKg,volumeM3:order.totalVolumeM3,temperature,vanOnly:order.outlet.vanOnly,priority:order.deferralCount,status:order.status,deferralReason:order.deferralReason,deferralCount:order.deferralCount,nextDeliveryDate:order.nextDeliveryDate,deferralTimeSlot:order.deferralTimeSlot,deferralPriority:order.deferralPriority,deferredVehicleId:order.deferredVehicleId,deferredVehicleRegistration:order.deferredVehicle?.registrationNumber||null,dispatcherNotes:order.dispatcherNotes };
 }
 
 export const dispatcherService = {

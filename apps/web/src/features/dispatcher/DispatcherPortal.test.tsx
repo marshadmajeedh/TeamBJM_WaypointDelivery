@@ -101,5 +101,28 @@ describe('DispatcherPortal',()=>{
     expect(screen.getByLabelText('Trip status timeline')).toBeDefined();
     expect(screen.getByText('Outlet One').closest('span')?.className).toContain('complete');
   });
+  it('persists a complete deferred-order reschedule',async()=>{
+    const deferred={id:'o1',reference:'ORD-1061',outletName:'Homagama',depot:'Peliyagoda',address:'A',windowStart:'2026-10-02T08:00:00Z',windowEnd:'2026-10-02T10:00:00Z',weightKg:920,volumeM3:4,temperature:'CHILLED',vanOnly:false,priority:2,status:'DEFERRED',deferralReason:'Reefer unavailable',deferralCount:2};
+    mocked.mockImplementation(async(path:string,options?:RequestInit)=>{
+      if(path==='/dashboard')return {confirmed:0,planned:0,deferred:1,activeTrips:0,availableVehicles:1} as never;
+      if(path==='/alerts')return [] as never;
+      if(path==='/orders?status=DEFERRED')return [deferred] as never;
+      if(path==='/vehicles')return [{id:'v1',registration:'VEH014',depot:'Peliyagoda',type:'VAN',maxWeightKg:1000,maxVolumeM3:10,refrigerated:true,weeklyFuelQuotaL:200,fuelUsedThisWeekL:20,available:true,tripsToday:0}] as never;
+      if(path==='/deferred/o1'&&options?.method==='PATCH')return {} as never;
+      return [] as never;
+    });
+    render(<DispatcherPortal/>);
+    fireEvent.click(screen.getByRole('button',{name:'Deferred Orders'}));
+    fireEvent.click(await screen.findByRole('button',{name:'Configure'}));
+    fireEvent.change(screen.getByLabelText('Next delivery date'),{target:{value:'2026-10-05'}});
+    fireEvent.change(screen.getByLabelText('Deferral time slot'),{target:{value:'AFTERNOON'}});
+    fireEvent.change(screen.getByLabelText('Deferral priority'),{target:{value:'5'}});
+    fireEvent.change(screen.getByLabelText('Deferred assigned vehicle'),{target:{value:'v1'}});
+    fireEvent.change(screen.getByLabelText('Dispatcher notes'),{target:{value:'Load first on the morning wave'}});
+    fireEvent.click(screen.getByRole('button',{name:'Save Reschedule'}));
+    await waitFor(()=>expect(mocked).toHaveBeenCalledWith('/deferred/o1',expect.objectContaining({method:'PATCH'})));
+    const request=mocked.mock.calls.find(call=>call[0]==='/deferred/o1')?.[1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toMatchObject({nextDeliveryDate:'2026-10-05',timeSlot:'AFTERNOON',priority:5,assignedVehicleId:'v1',notes:'Load first on the morning wave'});
+  });
   it('provides every required dispatcher navigation area',async()=>{render(<DispatcherPortal/>);await waitFor(()=>expect(screen.getByText('8')).toBeDefined());['Dashboard','Confirmed Orders','Daily Planning','Fleet & Vehicles','Active Deliveries','Deferred Orders'].forEach(label=>expect(screen.getByRole('button',{name:label})).toBeDefined());});
 });
