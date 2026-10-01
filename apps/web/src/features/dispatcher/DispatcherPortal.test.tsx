@@ -135,7 +135,7 @@ describe('DispatcherPortal',()=>{
   it('visualizes live completed-stop progress and the trip timeline',async()=>{
     mocked.mockImplementation(async(path:string)=>{
       if(path==='/dashboard')return {confirmed:0,planned:0,deferred:0,activeTrips:1,availableVehicles:1} as never;
-      if(path==='/trips')return [{id:'t1',reference:'TRIP-014',tripNumber:1,status:'IN_TRANSIT',driver:'Driver One',coldChain:'Normal',issues:[],vehicle:{registration:'VEH014',refrigerated:true},stops:[{id:'s1',sequence:1,eta:'2026-10-02T08:00:00Z',status:'DELIVERED',order:{reference:'ORD-1',outletName:'Outlet One'}},{id:'s2',sequence:2,eta:'2026-10-02T10:00:00Z',status:'IN_TRANSIT',order:{reference:'ORD-2',outletName:'Outlet Two'}}]}] as never;
+      if(path==='/trips')return [{id:'t1',reference:'TRIP-014',tripNumber:1,status:'IN_TRANSIT',driver:'Driver One',coldChain:'Normal',issues:[],vehicle:{registration:'VEH014',refrigerated:true},stops:[{id:'s1',sequence:1,eta:'2026-10-02T08:00:00Z',status:'DELIVERED',latitude:6.97,longitude:79.89,order:{reference:'ORD-1',outletName:'Outlet One'}},{id:'s2',sequence:2,eta:'2026-10-02T10:00:00Z',status:'IN_TRANSIT',latitude:7.01,longitude:79.92,order:{reference:'ORD-2',outletName:'Outlet Two'}}]}] as never;
       return [] as never;
     });
     render(<DispatcherPortal/>);
@@ -144,6 +144,10 @@ describe('DispatcherPortal',()=>{
     fireEvent.click(screen.getByRole('button',{name:/TRIP-014/}));
     expect(screen.getByLabelText('Trip status timeline')).toBeDefined();
     expect(screen.getByText('Outlet One').closest('span')?.className).toContain('complete');
+    fireEvent.click(screen.getByRole('button',{name:'View Full Trip Telematics'}));
+    expect(screen.getByLabelText('TRIP-014 interactive route map')).toBeDefined();
+    fireEvent.click(screen.getByLabelText('Stop 1: Outlet One'));
+    expect(screen.getByText('Stop 1 · Outlet One')).toBeDefined();
   });
   it('persists a complete deferred-order reschedule',async()=>{
     const deferred={id:'o1',reference:'ORD-1061',outletName:'Homagama',depot:'Peliyagoda',address:'A',windowStart:'2026-10-02T08:00:00Z',windowEnd:'2026-10-02T10:00:00Z',weightKg:920,volumeM3:4,temperature:'CHILLED',vanOnly:false,priority:2,status:'DEFERRED',deferralReason:'Reefer unavailable',deferralCount:2};
