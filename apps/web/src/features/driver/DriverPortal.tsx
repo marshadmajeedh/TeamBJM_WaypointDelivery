@@ -1,37 +1,72 @@
-import React from 'react';
-import { Truck, Wifi } from 'lucide-react';
-import { MobileLayout } from '../../layouts/MobileLayout';
-
-export const DriverPortal: React.FC = () => {
+import { NavLink, Outlet, Link, useLocation } from 'react-router-dom';
+import { Compass, List, AlertTriangle, UserCircle, Wifi, WifiOff } from 'lucide-react';
+import { DriverProvider, useDriver } from './DriverContext';
+import './driver.css';
+function DriverLayout() {
+  const { online, queue, feedback, error } = useDriver();
+  const location = useLocation();
+  const pending = queue.filter((q) => q.status !== 'SYNCED').length;
   return (
-    <MobileLayout
-      title="Driver Portal"
-      badge="Active Run"
-      actions={
-        <div className="flex items-center justify-between text-xs text-slate-400">
-          <div className="flex items-center space-x-1.5 text-emerald-400">
-            <Wifi className="w-4 h-4" />
-            <span>PWA Offline Mode Ready</span>
-          </div>
-          <span className="font-mono">Dexie v4</span>
-        </div>
-      }
-    >
-      <div className="bg-slate-800/60 border border-slate-700/60 rounded-xl p-5 space-y-3">
-        <div className="flex items-center space-x-3">
-          <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-lg">
-            <Truck className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-base font-semibold text-slate-100">Driver Portal</h2>
-            <p className="text-xs text-slate-400">Mobile-First Delivery Manifest</p>
-          </div>
-        </div>
-        <p className="text-xs text-slate-300 leading-relaxed">
-          Foundation placeholder active. Workflows for route progression, proof-of-delivery capture,
-          offline caching in IndexedDB, and automatic queue synchronization will be connected here.
-        </p>
-      </div>
-    </MobileLayout>
+    <div className="driver-shell">
+      <header className="driver-header">
+        <Link to="/driver" className="driver-brand">
+          <Compass aria-hidden="true" />
+          <span>
+            WAYPOINT<small>DELIVERY · Driver Portal</small>
+          </span>
+        </Link>
+        <Link to="/driver/sync" className="driver-tag">
+          {online ? <Wifi size={14} /> : <WifiOff size={14} />}
+          {online ? 'Online' : 'Offline'} · {pending ? `${pending} pending` : 'Synced'}
+        </Link>
+      </header>
+      {!online && (
+        <Link className="driver-banner" to="/driver/offline">
+          Offline mode · Your changes stay on this device until synced.
+        </Link>
+      )}
+      <main className="driver-content">
+        {feedback && (
+          <p role="status" className="driver-success">
+            {feedback}
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="driver-error">
+            {error}
+          </p>
+        )}
+        <Outlet />
+      </main>
+      <nav className="driver-nav" aria-label="Driver navigation">
+        {[
+          { to: '/driver', label: 'Route', Icon: Compass },
+          { to: '/driver/stops', label: 'Stops', Icon: List },
+          { to: '/driver/issues', label: 'Issues', Icon: AlertTriangle },
+          { to: '/driver/profile', label: 'Profile', Icon: UserCircle },
+        ].map(({ to, label, Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={to === '/driver'}
+            className={({ isActive }) =>
+              isActive || (to === '/driver' && location.pathname === '/driver/route')
+                ? 'active'
+                : ''
+            }
+          >
+            <Icon size={21} />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+    </div>
   );
-};
+}
+export function DriverPortal() {
+  return (
+    <DriverProvider>
+      <DriverLayout />
+    </DriverProvider>
+  );
+}

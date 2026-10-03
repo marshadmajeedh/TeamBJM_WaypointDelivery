@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from 'express';
+﻿import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import { config } from './config';
 import { errorHandler, requestLogger } from './middleware';
@@ -15,12 +15,13 @@ import { deliveriesRouter } from './modules/deliveries/routes';
 import { receiptsRouter } from './modules/receipts/routes';
 import { syncRouter } from './modules/sync/routes';
 import { dispatcherRouter } from './modules/dispatcher/routes';
+import { driverRouter } from './modules/driver/routes';
 
 export function createApp(): Express {
   const app = express();
 
   app.use(cors({ origin: config.corsOrigin }));
-  app.use(express.json());
+  app.use(express.json({ limit: '12mb' }));
   app.use(requestLogger);
 
   // Health check endpoint required by specification
@@ -44,6 +45,7 @@ export function createApp(): Express {
   app.use('/api/receipts', receiptsRouter);
   app.use('/api/sync', syncRouter);
   app.use('/api/dispatcher', dispatcherRouter);
+  app.use('/api/driver', driverRouter);
 
   // Central error handling
   app.use(errorHandler);
