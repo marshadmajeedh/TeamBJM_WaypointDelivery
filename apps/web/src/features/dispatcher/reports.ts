@@ -27,8 +27,9 @@ function pdfDocument(lines:string[]){
   const objects:string[]=['<< /Type /Catalog /Pages 2 0 R >>','', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>'];
   const refs:string[]=[];
   pages.forEach((page,index)=>{const pageId=4+index*2,contentId=pageId+1;refs.push(`${pageId} 0 R`);const commands=['BT','/F1 9 Tf','40 800 Td',...page.flatMap((line,lineIndex)=>[`${lineIndex?'0 -14 Td ':''}(${line.replace(/([\\()])/g,'\\$1')}) Tj`]),'ET'].join('\n');objects[pageId-1]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentId} 0 R >>`;objects[contentId-1]=`<< /Length ${commands.length} >>\nstream\n${commands}\nendstream`});
-  objects[1]=`<< /Type /Pages /Kids [${refs.join(' ')}] /Count ${pages.length} >>`;
-  let output='%PDF-1.4\n',offsets=[0];objects.forEach((object,index)=>{offsets[index+1]=output.length;output+=`${index+1} 0 obj\n${object}\nendobj\n`});const xref=output.length;output+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`;for(let index=1;index<=objects.length;index++)output+=`${String(offsets[index]).padStart(10,'0')} 00000 n \n`;output+=`trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  let output='%PDF-1.4\n';
+  const offsets=[0];
+  objects.forEach((object,index)=>{offsets[index+1]=output.length;output+=`${index+1} 0 obj\n${object}\nendobj\n`});const xref=output.length;output+=`xref\n0 ${objects.length+1}\n0000000000 65535 f \n`;for(let index=1;index<=objects.length;index++)output+=`${String(offsets[index]).padStart(10,'0')} 00000 n \n`;output+=`trailer\n<< /Size ${objects.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
   return output;
 }
 

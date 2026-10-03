@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:16-alpine
@@ -31,10 +29,10 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-waypoint}:${POSTGRES_PASSWORD:-change_me}@db:5432/${POSTGRES_DB:-waypoint}?schema=public
       JWT_SECRET: ${JWT_SECRET:-replace_with_secure_secret}
       CORS_ORIGIN: '*'
-      SEED_STORE_MANAGER_PASSWORD: ${SEED_STORE_MANAGER_PASSWORD:-change_me}
-      SEED_DISPATCHER_PASSWORD: ${SEED_DISPATCHER_PASSWORD:-change_me}
-      SEED_LOADER_PASSWORD: ${SEED_LOADER_PASSWORD:-change_me}
-      SEED_DRIVER_PASSWORD: ${SEED_DRIVER_PASSWORD:-change_me}
+      SEED_STORE_MANAGER_PASSWORD: ${SEED_STORE_MANAGER_PASSWORD:-StoreHero@123}
+      SEED_DISPATCHER_PASSWORD: ${SEED_DISPATCHER_PASSWORD:-DispatcherHero@123}
+      SEED_LOADER_PASSWORD: ${SEED_LOADER_PASSWORD:-LoaderHero@123}
+      SEED_DRIVER_PASSWORD: ${SEED_DRIVER_PASSWORD:-DriverHero@123}
     ports:
       - '4000:4000'
     depends_on:

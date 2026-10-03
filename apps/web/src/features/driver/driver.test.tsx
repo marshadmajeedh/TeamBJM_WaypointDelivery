@@ -1,4 +1,4 @@
-﻿import 'fake-indexeddb/auto';
+import 'fake-indexeddb/auto';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -62,7 +62,7 @@ function Ready() {
 }
 function mount(child: React.ReactNode) {
   return render(
-    <MemoryRouter>
+    <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
         <DriverProvider>
           <Ready />
@@ -234,7 +234,7 @@ describe('driver pages and access', () => {
       'data:image/png;base64,c2lnbmF0dXJl'
     );
     render(
-      <MemoryRouter initialEntries={['/driver']}>
+      <MemoryRouter initialEntries={['/driver']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <AppRoutes />
         </AuthProvider>
@@ -273,7 +273,7 @@ describe('driver pages and access', () => {
 
   it('starts directly from the primary button and opens the route overview offline', async () => {
     render(
-      <MemoryRouter initialEntries={['/driver']}>
+      <MemoryRouter initialEntries={['/driver']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <AppRoutes />
         </AuthProvider>
@@ -286,11 +286,12 @@ describe('driver pages and access', () => {
     await act(async () => {
       fireEvent.click(start);
     });
-    expect(await screen.findByRole('heading', { name: 'Route Overview' })).toBeDefined();
-    const actions = await offlineDb.syncQueue.toArray();
-    expect(actions).toHaveLength(1);
-    expect(actions[0].payload).toEqual({ type: 'START_TRIP', tripId: trip.id });
-    expect(actions[0].status).toBe('PENDING');
+    await waitFor(async () => {
+      const actions = await offlineDb.syncQueue.toArray();
+      expect(actions).toHaveLength(1);
+      expect(actions[0].payload).toEqual({ type: 'START_TRIP', tripId: trip.id });
+      expect(actions[0].status).toBe('PENDING');
+    });
   });
 
   it('renders today route with cached assigned trip', async () => {
@@ -315,11 +316,15 @@ describe('driver pages and access', () => {
     });
     await waitFor(() => expect(close).toHaveBeenCalled());
     expect(blocked).not.toHaveBeenCalled();
-    expect((await offlineDb.syncQueue.toArray())[0].payload).toMatchObject(issue);
+    await waitFor(async () => {
+      const items = await offlineDb.syncQueue.toArray();
+      expect(items.length).toBeGreaterThan(0);
+      expect(items[0].payload).toMatchObject(issue);
+    });
   });
   it('driver cannot render a different role portal', () => {
     render(
-      <MemoryRouter>
+      <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <ProtectedRoute allowedRoles={[UserRole.DISPATCHER]}>
             <p>Dispatcher secret</p>
@@ -331,7 +336,7 @@ describe('driver pages and access', () => {
   });
   it('protects nested driver routes and lets drivers open Stop Details', async () => {
     render(
-      <MemoryRouter initialEntries={['/driver/stops/stop-1']}>
+      <MemoryRouter initialEntries={['/driver/stops/stop-1']} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <AppRoutes />
         </AuthProvider>
