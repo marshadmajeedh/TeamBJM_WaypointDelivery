@@ -11,7 +11,7 @@ import { receiptSchema } from '../src/modules/receipts/store-routes';
 const { db } = vi.hoisted(() => ({
   db: {
     user: { findUnique: vi.fn() },
-    outlet: { findFirst: vi.fn(), findMany: vi.fn() },
+    outlet: { findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
     order: { findFirst: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
     receiptConfirmation: { create: vi.fn() },
     syncRecord: {
@@ -52,6 +52,7 @@ beforeEach(() => {
   db.outlet.findFirst.mockResolvedValue({ id: 'outlet-1' });
   db.order.findFirst.mockResolvedValue({
     id: 'order-1',
+    outletId: 'outlet-1',
     status: 'IN_TRANSIT',
     receiptConfirmation: null,
     deferralCount: 1,
@@ -66,6 +67,39 @@ beforeEach(() => {
   db.$transaction.mockImplementation(async (callback) => callback(db));
 });
 describe('Store Manager API boundaries', () => {
+  it('saves outlet coordinates only inside the authenticated depot', async () => {
+    db.outlet.updateMany.mockResolvedValue({ count: 1 });
+    const result = await request(app)
+      .put('/api/orders/store/order-1/location')
+      .auth(token(), { type: 'bearer' })
+      .send({ latitude: 6.9, longitude: 79.8 });
+    expect(result.status).toBe(200);
+    expect(db.outlet.updateMany).toHaveBeenCalledWith({
+      where: { id: 'outlet-1', depotId: 'depot-1' },
+      data: { latitude: 6.9, longitude: 79.8 },
+    });
+  });
+  it('rejects invalid coordinates and inaccessible orders without updating an outlet', async () => {
+    const url = '/api/orders/store/order-1/location';
+    expect(
+      (
+        await request(app)
+          .put(url)
+          .auth(token(), { type: 'bearer' })
+          .send({ latitude: 91, longitude: 79.8 })
+      ).status
+    ).toBe(400);
+    db.order.findFirst.mockResolvedValue(null);
+    expect(
+      (
+        await request(app)
+          .put(url)
+          .auth(token(), { type: 'bearer' })
+          .send({ latitude: 6.9, longitude: 79.8 })
+      ).status
+    ).toBe(404);
+    expect(db.outlet.updateMany).not.toHaveBeenCalled();
+  });
   it('requires authentication and rejects other roles', async () => {
     expect((await request(app).get('/api/orders/store')).status).toBe(401);
     expect(

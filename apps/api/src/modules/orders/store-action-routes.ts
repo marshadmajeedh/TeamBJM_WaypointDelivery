@@ -5,6 +5,27 @@ import { sendSuccess } from '../../shared/response';
 import { draftSchema, depotScope, fail, scopedOrder } from './store-service';
 import { enrichOrders, saveAction } from './store-workflow';
 export const storeActionRouter = Router();
+storeActionRouter.put('/:id/location', async (req, res, next) => {
+  try {
+    const depotId = await depotScope(req);
+    const order = await scopedOrder(req.params.id, depotId);
+    const input = z
+      .object({
+        latitude: z.number().finite().min(-90).max(90),
+        longitude: z.number().finite().min(-180).max(180),
+      })
+      .strict()
+      .parse(req.body);
+    const result = await prisma.outlet.updateMany({
+      where: { id: order.outletId, depotId },
+      data: input,
+    });
+    if (!result.count) return fail('Outlet not available to your depot', 403);
+    return sendSuccess(res, input);
+  } catch (error) {
+    next(error);
+  }
+});
 storeActionRouter.get('/draft', async (req, res, next) => {
   try {
     const depotId = await depotScope(req);

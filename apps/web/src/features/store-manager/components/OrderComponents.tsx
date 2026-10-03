@@ -1,4 +1,5 @@
 import { ReactNode } from 'react';
+import { DeliveryMap } from './DeliveryMap';
 import { Link } from 'react-router-dom';
 import {
   Check,
@@ -248,38 +249,7 @@ export function FulfillmentStepper({
   );
 }
 export function RoutePreview({ order }: { order: StoreOrder }) {
-  return (
-    <div className="sm-route">
-      <div className="sm-row">
-        <strong>Schematic route corridor</strong>
-        <small>Illustrative</small>
-      </div>
-      <svg
-        viewBox="0 0 340 120"
-        role="img"
-        aria-label="Schematic route from distribution centre to outlet, not live GPS"
-      >
-        <path
-          d="M0 30L340 100M50 0L100 120M210 0L175 120M0 95L340 40"
-          stroke="#dce7f5"
-          strokeWidth="16"
-        />
-        <path d="M20 40 C90 15 160 85 310 85" fill="none" stroke="#a5d3fa" strokeWidth="7" />
-        <path d="M20 40 C90 15 125 70 180 73" fill="none" stroke="#087ba8" strokeWidth="5" />
-        <circle cx="20" cy="40" r="6" fill="#102b40" />
-        <circle cx="180" cy="73" r="10" fill="#a5d3fa" />
-        <circle cx="180" cy="73" r="5" fill="#007baa" />
-        <circle cx="310" cy="85" r="6" fill="#1aa79a" />
-        <text x="12" y="65">
-          Distribution centre
-        </text>
-        <text x="230" y="109">
-          Outlet {order.outlet.code}
-        </text>
-      </svg>
-      <small className="sm-muted">Live location and distance are not available.</small>
-    </div>
-  );
+  return <DeliveryMap order={order} />;
 }
 export function DispatchContact({ order }: { order: StoreOrder }) {
   return order.outlet.contactPhone ? (
