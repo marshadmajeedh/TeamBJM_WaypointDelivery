@@ -33,7 +33,7 @@ function renderPage(path: string) {
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[path]}>
+      <MemoryRouter initialEntries={[path]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <Routes>
             <Route path="/store/*" element={<StoreManagerPortal />} />
