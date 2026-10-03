@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { KeyRound, AlertCircle, Loader2 } from 'lucide-react';
+import { KeyRound, AlertCircle, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuth, getRolePortalPath } from './AuthContext';
 
 export const LoginPortal: React.FC = () => {
@@ -12,6 +12,7 @@ export const LoginPortal: React.FC = () => {
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [visible, setVisible] = useState(false);
 
   // If already authenticated, redirect to role portal immediately
   useEffect(() => {
@@ -43,7 +44,8 @@ export const LoginPortal: React.FC = () => {
 
       navigate(target, { replace: true });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Invalid email or password. Please try again.';
+      const message =
+        err instanceof Error ? err.message : 'Invalid email or password. Please try again.';
       setErrorMessage(message);
     } finally {
       setIsLoading(false);
@@ -108,7 +110,7 @@ export const LoginPortal: React.FC = () => {
             <input
               id="password"
               name="password"
-              type="password"
+              type={visible ? 'text' : 'password'}
               required
               autoComplete="current-password"
               value={password}
@@ -116,6 +118,15 @@ export const LoginPortal: React.FC = () => {
               placeholder="••••••••••••"
               className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             />
+            <button
+              type="button"
+              aria-label={visible ? 'Hide password' : 'Show password'}
+              onClick={() => setVisible(!visible)}
+              className="flex items-center gap-2 text-sm mt-2"
+            >
+              {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+              {visible ? 'Hide' : 'Show'} password
+            </button>
           </div>
 
           <button

@@ -50,3 +50,6 @@ Thumbs.db
 # Prisma SQLite local files (if ever created)
 *.db
 *.db-journal
+
+# Local design reference extracts
+tmp/pdfs/

@@ -1,16 +1,19 @@
 import React from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Compass, ShieldCheck, LogOut, User } from 'lucide-react';
 import { useAuth } from '../features/auth/AuthContext';
 
 export const AppLayout: React.FC = () => {
   const { isAuthenticated, user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
     navigate('/login');
   };
+
+  if (location.pathname.startsWith('/driver')) return <Outlet />;
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
@@ -99,7 +102,11 @@ export const AppLayout: React.FC = () => {
                     <User className="w-3.5 h-3.5 text-slate-400 inline" />
                     <span>{user.name || user.email.split('@')[0]}</span>
                   </div>
-                  <div className="text-xs font-mono text-blue-400 font-semibold">{user.role}</div>
+
+                  <div className="text-[10px] font-mono text-blue-400 font-semibold">
+                    {user.role}
+                  </div>
+
                 </div>
                 <button
                   id="header-logout-button"

@@ -1,3 +1,4 @@
+import { storeOrdersRouter } from './store-routes';
 import { Router } from 'express';
 import { sendSuccess } from '../../shared/response';
 
@@ -8,3 +9,5 @@ ordersRouter.get('/', (_req, res) => {
     message: 'Orders module foundation active.',
   });
 });
+
+ordersRouter.use('/store', storeOrdersRouter);
