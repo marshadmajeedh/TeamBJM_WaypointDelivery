@@ -1,25 +1,41 @@
-import React from 'react';
-import { ShoppingBag } from 'lucide-react';
-import { DesktopLayout } from '../../layouts/DesktopLayout';
-
-export const StoreManagerPortal: React.FC = () => {
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { UserRole } from '@waypoint/shared';
+import { useAuth } from '../auth/AuthContext';
+import { ProtectedRoute } from '../../routes/ProtectedRoute';
+import { StoreProvider } from './StoreContext';
+import { StoreShell } from './components/StoreShell';
+import { Dashboard } from './pages/Dashboard';
+import { CreateOrder } from './pages/CreateOrder';
+import { ReviewOrder } from './pages/ReviewOrder';
+import { Confirmation } from './pages/Confirmation';
+import { MyOrders } from './pages/MyOrders';
+import { Tracking } from './pages/Tracking';
+import { DeferredNotice } from './pages/DeferredNotice';
+import { Receipt } from './pages/Receipt';
+import { OrderDetails } from './pages/OrderDetails';
+import './store.css';
+export function StoreManagerPortal() {
+  const { isAuthenticated, user } = useAuth();
+  const location = useLocation();
+  if (!isAuthenticated) return <Navigate to="/store/login" state={{ from: location }} replace />;
   return (
-    <DesktopLayout title="Store Manager Portal">
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-8 max-w-2xl">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="p-3 bg-blue-500/10 text-blue-400 rounded-lg">
-            <ShoppingBag className="w-6 h-6" />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold text-slate-100">Store Manager Portal</h2>
-            <p className="text-sm text-slate-400">Order placement, tracking, and receipt confirmation</p>
-          </div>
-        </div>
-        <p className="text-slate-400 text-sm leading-relaxed">
-          Foundation placeholder active. Workflows for placing daily outlet orders, tracking delivery ETAs,
-          and confirming received shipments will be connected in feature implementation.
-        </p>
-      </div>
-    </DesktopLayout>
+    <ProtectedRoute allowedRoles={[UserRole.STORE_MANAGER]}>
+      <StoreProvider key={user?.id}>
+        <StoreShell>
+          <Routes>
+            <Route index element={<Dashboard />} />
+            <Route path="orders" element={<MyOrders />} />
+            <Route path="orders/new" element={<CreateOrder />} />
+            <Route path="orders/review" element={<ReviewOrder />} />
+            <Route path="orders/:id" element={<OrderDetails />} />
+            <Route path="orders/:id/confirmation" element={<Confirmation />} />
+            <Route path="orders/:id/track" element={<Tracking />} />
+            <Route path="orders/:id/deferred" element={<DeferredNotice />} />
+            <Route path="orders/:id/receipt" element={<Receipt />} />
+            <Route path="*" element={<Navigate to="/store" replace />} />
+          </Routes>
+        </StoreShell>
+      </StoreProvider>
+    </ProtectedRoute>
   );
-};
+}
