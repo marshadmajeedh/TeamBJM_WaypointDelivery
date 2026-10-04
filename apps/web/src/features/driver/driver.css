@@ -1,13 +1,12 @@
 .driver-shell {
   color: #102a43;
   background: #f5f8ff;
-  max-width: 440px;
+  max-width: 100%;
   min-height: 100dvh;
-  margin: auto;
+  margin: 0 auto;
   width: 100%;
   font-size: 14px;
   line-height: 1.5;
-  box-shadow: 0 0 30px #102a4310;
 }
 .driver-header {
   position: sticky;
@@ -152,8 +151,10 @@
 .driver-nav {
   position: fixed;
   bottom: 0;
+  left: 0;
+  right: 0;
   width: 100%;
-  max-width: 440px;
+  max-width: 100%;
   display: flex;
   justify-content: space-around;
   background: #fff;
@@ -1947,4 +1948,290 @@
 .driver-profile-details dd {
   font-weight: 600;
   overflow-wrap: anywhere;
+}
+
+/* ==================================================
+   DRIVER PORTAL RESPONSIVE STYLES & LAYOUTS
+   ================================================== */
+
+/* Touch targets enforcement across all breakpoints */
+.driver-shell button,
+.driver-shell a.driver-button,
+.driver-shell a.driver-tag,
+.driver-shell .driver-filters button,
+.driver-shell input,
+.driver-shell select,
+.driver-shell textarea {
+  min-height: 44px;
+}
+
+/* --------------------------------------------------
+   TABLET RESPONSIVE STYLES (768px - 1023px)
+   -------------------------------------------------- */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .driver-shell {
+    max-width: 920px;
+    margin: 0 auto;
+  }
+
+  .driver-content {
+    padding: 20px 24px 100px;
+    max-width: 920px;
+    margin: 0 auto;
+    gap: 20px;
+  }
+
+  .driver-header {
+    padding: 16px 24px;
+    max-width: 920px;
+    margin: 0 auto;
+  }
+
+  .driver-nav {
+    max-width: 920px;
+    margin: 0 auto;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 16px rgba(16, 42, 67, 0.08);
+  }
+
+  /* 4-column metric stats on tablet */
+  .today-stats {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 10px;
+  }
+
+  .today-stats > div {
+    padding: 14px 10px;
+  }
+
+  /* Quick action cards side-by-side */
+  .today-shortcuts {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px;
+  }
+
+  /* Pre-trip checklist horizontal breathing room */
+  .today-checklist.driver-card {
+    padding: 20px;
+  }
+
+  .today-check {
+    padding: 8px 12px;
+    background: #f4f8ff;
+    border-radius: 8px;
+  }
+
+  .driver-stop-list {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    display: grid;
+    gap: 16px;
+  }
+
+  /* Typography scale for tablet */
+  .driver-shell h1 {
+    font-size: 22px;
+  }
+
+  .driver-shell h2 {
+    font-size: 17px;
+  }
+}
+
+/* --------------------------------------------------
+   DESKTOP RESPONSIVE STYLES (>= 1024px)
+   -------------------------------------------------- */
+@media (min-width: 1024px) {
+  .driver-shell {
+    max-width: 1400px;
+    margin: 0 auto;
+    background: transparent;
+    box-shadow: none;
+    font-size: 15px;
+  }
+
+  /* Hide Mobile-Only Header and Fixed Bottom Navigation */
+  .driver-header {
+    display: none !important;
+  }
+
+  .driver-nav {
+    display: none !important;
+  }
+
+  /* Desktop Sub-Header Bar */
+  .driver-desktop-header {
+    display: block !important;
+    background: #09273d;
+    color: #ffffff;
+    border-bottom: 1px solid #193f5c;
+    position: sticky;
+    top: 64px;
+    z-index: 30;
+    box-shadow: 0 4px 12px rgba(9, 39, 61, 0.15);
+  }
+
+  .driver-desktop-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 10px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  .driver-desktop-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 14px;
+    color: #4cd5ca;
+    letter-spacing: 0.02em;
+  }
+
+  .driver-desktop-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .driver-desktop-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #94a3b8;
+    transition: all 0.15s ease;
+  }
+
+  .driver-desktop-link:hover {
+    color: #ffffff;
+    background: #183a54;
+  }
+
+  .driver-desktop-link.active {
+    color: #ffffff;
+    background: #0284c7;
+  }
+
+  .driver-content {
+    padding: 28px 32px 60px;
+    max-width: 1400px;
+    margin: 0 auto;
+    gap: 24px;
+  }
+
+  /* Desktop Typography Ranges */
+  .driver-shell p,
+  .driver-card p {
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  .driver-shell label,
+  .driver-shell small,
+  .today-stats small {
+    font-size: 13px;
+  }
+
+  .driver-shell h1,
+  .driver-page-heading h1 {
+    font-size: 26px;
+  }
+
+  .driver-shell h2,
+  .today-wave h2 {
+    font-size: 22px;
+  }
+
+  /* 12-Column Responsive Dashboard Layout for Today's Route */
+  .today-route-container {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 28px;
+    align-items: start;
+  }
+
+  .today-route-main {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+  }
+
+  .today-route-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    position: sticky;
+    top: 130px;
+  }
+
+  /* 4 Columns for Route Metrics on Desktop */
+  .today-stats {
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 12px;
+  }
+
+  .today-stats > div {
+    padding: 16px 12px;
+  }
+
+  .today-shortcuts {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+
+  .today-shortcuts a {
+    padding: 18px 14px;
+    flex-direction: row;
+    text-align: left;
+    gap: 14px;
+  }
+
+  .today-shortcuts a svg {
+    margin-bottom: 0;
+  }
+
+  .today-checklist.driver-card {
+    padding: 22px;
+  }
+
+  .today-check {
+    padding: 10px 14px;
+    background: #f4f8ff;
+    border-radius: 10px;
+    transition: background 0.15s ease;
+  }
+
+  .today-check:hover {
+    background: #e4eeff;
+  }
+
+  /* Route Overview Desktop Layout */
+  .route-overview {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 28px;
+    align-items: start;
+  }
+
+  /* Stop List Grid Layout */
+  .driver-stop-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 20px;
+  }
+
+  /* Centered form container for outcome & proof pages */
+  .driver-delivery-form,
+  .driver-proof-container {
+    max-width: 840px;
+    margin: 0 auto;
+    width: 100%;
+  }
 }

@@ -20,6 +20,44 @@ function DriverLayout() {
           {online ? 'Online' : 'Offline'} · {pending ? `${pending} pending` : 'Synced'}
         </Link>
       </header>
+
+      {/* Desktop Navigation Sub-header (styled via CSS, aria-hidden for screen readers to avoid duplicate nav landmarks) */}
+      <div className="driver-desktop-header" aria-hidden="true">
+        <div className="driver-desktop-inner">
+          <div className="driver-desktop-brand">
+            <Compass size={20} />
+            <span>Driver Operations Dashboard</span>
+          </div>
+          <div className="driver-desktop-nav-links">
+            {[
+              { to: '/driver', label: 'Route', Icon: Compass },
+              { to: '/driver/stops', label: 'Stops', Icon: List },
+              { to: '/driver/issues', label: 'Issues', Icon: AlertTriangle },
+              { to: '/driver/profile', label: 'Profile', Icon: UserCircle },
+            ].map(({ to, label, Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={to === '/driver'}
+                tabIndex={-1}
+                className={({ isActive }) =>
+                  isActive || (to === '/driver' && location.pathname === '/driver/route')
+                    ? 'driver-desktop-link active'
+                    : 'driver-desktop-link'
+                }
+              >
+                <Icon size={16} />
+                <span>{label}</span>
+              </NavLink>
+            ))}
+          </div>
+          <Link to="/driver/sync" tabIndex={-1} className="driver-tag">
+            {online ? <Wifi size={14} /> : <WifiOff size={14} />}
+            {online ? 'Online' : 'Offline'} · {pending ? `${pending} pending` : 'Synced'}
+          </Link>
+        </div>
+      </div>
+
       {!online && (
         <Link className="driver-banner" to="/driver/offline">
           Offline mode · Your changes stay on this device until synced.

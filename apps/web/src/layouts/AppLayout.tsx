@@ -13,12 +13,12 @@ export const AppLayout: React.FC = () => {
     navigate('/login');
   };
 
-  if (location.pathname.startsWith('/driver')) return <Outlet />;
+  const isDriverRoute = location.pathname.startsWith('/driver');
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
       {/* Top Header */}
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+      <header className={`border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 ${isDriverRoute ? 'hidden lg:block' : ''}`}>
         <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
@@ -142,7 +142,7 @@ export const AppLayout: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800 bg-slate-900/50 py-4 text-center text-xs text-slate-500 flex items-center justify-center space-x-2">
+      <footer className={`border-t border-slate-800 bg-slate-900/50 py-4 text-center text-xs text-slate-500 flex items-center justify-center space-x-2 ${isDriverRoute ? 'hidden lg:flex' : ''}`}>
         <ShieldCheck className="w-4 h-4 text-emerald-500" />
         <span>Waypoint Delivery Planning System • Tech-Triathlon 2026 • Team BJM</span>
       </footer>
