@@ -18,7 +18,7 @@ const queryClient = new QueryClient({
 function renderWithAuth(initialPath: string) {
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={[initialPath]}>
+      <MemoryRouter initialEntries={[initialPath]} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<LoginPortal />} />
