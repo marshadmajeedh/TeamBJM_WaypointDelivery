@@ -16,7 +16,7 @@ import {
   ConfirmReadyForDispatchResponse,
 } from '@waypoint/shared';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const API_BASE = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:4000/api');
 
 const TOKEN_KEY = 'waypoint_token';
 const USER_KEY = 'waypoint_user';
