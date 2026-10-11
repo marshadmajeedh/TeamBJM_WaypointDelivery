@@ -12,11 +12,4 @@ describe('API Health Endpoint', () => {
       service: 'waypoint-api',
     });
   });
-
-  it('GET /api/auth/login returns module placeholder response', async () => {
-    const response = await request(app).post('/api/auth/login').send({});
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-  });
 });

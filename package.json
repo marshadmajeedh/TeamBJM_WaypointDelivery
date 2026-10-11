@@ -9,7 +9,7 @@
     "apps/web"
   ],
   "scripts": {
-    "dev": "npm run dev:api & npm run dev:web",
+    "dev": "node scripts/dev.mjs",
     "dev:web": "npm run dev --workspace=@waypoint/web",
     "dev:api": "npm run dev --workspace=@waypoint/api",
     "build:shared": "npm run build --workspace=@waypoint/shared",
@@ -22,11 +22,12 @@
     "db:generate": "npm run db:generate --workspace=@waypoint/api",
     "db:migrate": "npm run db:migrate --workspace=@waypoint/api",
     "db:push": "npm run db:push --workspace=@waypoint/api",
-    "db:seed": "npm run db:seed --workspace=@waypoint/api"
+    "db:seed": "npm run db:seed --workspace=@waypoint/api",
+    "db:seed:driver": "npm run db:seed:driver --workspace=@waypoint/api"
   },
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "^7.10.0",
-    "@typescript-eslint/parser": "^7.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.71.0",
+    "@typescript-eslint/parser": "^8.71.0",
     "eslint": "^8.57.0",
     "prettier": "^3.2.5",
     "typescript": "^5.4.5"

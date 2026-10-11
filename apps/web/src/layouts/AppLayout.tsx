@@ -1,13 +1,25 @@
 import React from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
-import { Compass, ShieldCheck } from 'lucide-react';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { Compass, ShieldCheck, LogOut, User } from 'lucide-react';
+import { useAuth } from '../features/auth/AuthContext';
 
 export const AppLayout: React.FC = () => {
+  const { isAuthenticated, user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const isDriverRoute = location.pathname.startsWith('/driver');
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
       {/* Top Header */}
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <header className={`border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 ${isDriverRoute ? 'hidden lg:block' : ''}`}>
+        <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-lg bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
               <Compass className="w-6 h-6 animate-pulse" />
@@ -82,18 +94,44 @@ export const AppLayout: React.FC = () => {
             >
               Driver
             </NavLink>
-            <NavLink
-              to="/login"
-              className={({ isActive }) =>
-                `px-3 py-1.5 rounded-md transition-colors border border-slate-700 ${
-                  isActive
-                    ? 'bg-slate-800 text-white'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`
-              }
-            >
-              Login
-            </NavLink>
+
+            {isAuthenticated && user ? (
+              <div className="flex items-center space-x-3 border-l border-slate-800 pl-3 sm:pl-4">
+                <div className="text-right hidden sm:block">
+                  <div className="text-xs sm:text-sm font-medium text-white truncate max-w-[150px] flex items-center space-x-1.5">
+                    <User className="w-3.5 h-3.5 text-slate-400 inline" />
+                    <span>{user.name || user.email.split('@')[0]}</span>
+                  </div>
+
+                  <div className="text-[10px] font-mono text-blue-400 font-semibold">
+                    {user.role}
+                  </div>
+
+                </div>
+                <button
+                  id="header-logout-button"
+                  onClick={handleLogout}
+                  title="Sign Out"
+                  className="px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors flex items-center space-x-1.5 border border-slate-700/60 cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Sign Out</span>
+                </button>
+              </div>
+            ) : (
+              <NavLink
+                to="/login"
+                className={({ isActive }) =>
+                  `px-3 py-1.5 rounded-md transition-colors border border-slate-700 ${
+                    isActive
+                      ? 'bg-slate-800 text-white'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                  }`
+                }
+              >
+                Login
+              </NavLink>
+            )}
           </nav>
         </div>
       </header>
@@ -104,7 +142,7 @@ export const AppLayout: React.FC = () => {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-800 bg-slate-900/50 py-4 text-center text-xs text-slate-500 flex items-center justify-center space-x-2">
+      <footer className={`border-t border-slate-800 bg-slate-900/50 py-4 text-center text-xs text-slate-500 flex items-center justify-center space-x-2 ${isDriverRoute ? 'hidden lg:flex' : ''}`}>
         <ShieldCheck className="w-4 h-4 text-emerald-500" />
         <span>Waypoint Delivery Planning System • Tech-Triathlon 2026 • Team BJM</span>
       </footer>

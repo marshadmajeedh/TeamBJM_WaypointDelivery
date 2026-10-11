@@ -84,6 +84,7 @@ model User {
   loadingRecords       LoadingRecord[]
   deliveries           Delivery[]
   receiptConfirmations ReceiptConfirmation[]
+  auditEvents          AuditEvent[]
 }
 
 model Outlet {
@@ -120,6 +121,7 @@ model Vehicle {
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
   trips                 Trip[]
+  deferredOrders        Order[]                @relation("DeferredVehicle")
 }
 
 model Order {
@@ -133,12 +135,20 @@ model Order {
   totalVolumeM3         Float                @default(0)
   deferralReason        String?
   deferralCount         Int                  @default(0)
+  nextDeliveryDate      DateTime?
+  deferralTimeSlot      String?
+  deferralPriority      Int                  @default(0)
+  deferredVehicleId     String?
+  deferredVehicle       Vehicle?             @relation("DeferredVehicle", fields: [deferredVehicleId], references: [id], onDelete: SetNull)
+  dispatcherNotes       String?
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
   items                 OrderItem[]
   tripOrders            TripOrder[]
   deliveries            Delivery[]
   receiptConfirmation   ReceiptConfirmation?
+
+  @@index([deferredVehicleId])
 }
 
 model OrderItem {
@@ -260,6 +270,20 @@ model ReceiptConfirmation {
   confirmedAt       DateTime @default(now())
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+}
+
+model AuditEvent {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
 }
 
 model SyncRecord {

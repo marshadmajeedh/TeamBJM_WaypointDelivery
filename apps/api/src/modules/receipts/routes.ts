@@ -1,3 +1,4 @@
+import { storeReceiptsRouter } from './store-routes';
 import { Router } from 'express';
 import { sendSuccess } from '../../shared/response';
 
@@ -8,3 +9,5 @@ receiptsRouter.get('/', (_req, res) => {
     message: 'Receipts module foundation active.',
   });
 });
+
+receiptsRouter.use('/store', storeReceiptsRouter);

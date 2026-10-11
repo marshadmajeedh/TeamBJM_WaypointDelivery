@@ -22,13 +22,14 @@ The **Waypoint Delivery Planning System** is an end-to-end logistics and deliver
 14. [Running with Docker](#14-running-with-docker)
 15. [Database Setup](#15-database-setup)
 16. [Seed Data](#16-seed-data)
-17. [Development Workflow](#17-development-workflow)
-18. [Branch Strategy](#18-branch-strategy)
-19. [Testing](#19-testing)
-20. [Hackathon Deliverables](#20-hackathon-deliverables)
-21. [Judge Walkthrough](#21-judge-walkthrough)
-22. [AI Tool Disclosure](#22-ai-tool-disclosure)
-23. [Team Members](#23-team-members)
+17. [Authentication & Role-Based Access Control](#17-authentication--role-based-access-control)
+18. [Development Workflow](#18-development-workflow)
+19. [Branch Strategy](#19-branch-strategy)
+20. [Testing](#20-testing)
+21. [Hackathon Deliverables](#21-hackathon-deliverables)
+22. [Judge Walkthrough](#22-judge-walkthrough)
+23. [AI Tool Disclosure](#23-ai-tool-disclosure)
+24. [Team Members](#24-team-members)
 
 ---
 
@@ -356,7 +357,39 @@ npm run db:seed
 
 ---
 
-## 17. Development Workflow
+## 17. Authentication & Role-Based Access Control
+
+The platform implements a shared, role-based authentication and authorization foundation powered by Express, bcrypt, JSON Web Tokens (JWT), and React Context.
+
+### Seeded Development Accounts
+
+The following four foundational user accounts are seeded into the database:
+
+| Role | Email | Designated Portal | Required Env Password Key |
+| :--- | :--- | :--- | :--- |
+| Store Manager | `storemanager@waypoint.local` | `/store` | `SEED_STORE_MANAGER_PASSWORD` |
+| Dispatcher | `dispatcher@waypoint.local` | `/dispatcher` | `SEED_DISPATCHER_PASSWORD` |
+| Loader | `loader@waypoint.local` | `/loader` | `SEED_LOADER_PASSWORD` |
+| Driver | `driver@waypoint.local` | `/driver` | `SEED_DRIVER_PASSWORD` |
+
+> **Security Notice:** No real or default passwords are saved in code or repository documentation. Passwords strictly originate from local environment variables in your private `.env` file and are hashed using bcrypt with salt rounds before storage.
+
+### Authentication & Authorization Architecture
+
+1. **Login Endpoint:** `POST /api/auth/login` accepts and validates email and password with Zod, normalizes the email, looks up the user via Prisma, and validates the bcrypt hash.
+2. **Stateless JWT Claims:** Signs an 8-hour token containing strictly essential claims (`sub`: User UUID, `role`: `UserRole`). Password hashes and secrets are never returned.
+3. **Backend Middleware:**
+   - `authenticate`: Validates `Authorization: Bearer <token>` and attaches authenticated identity to `req.user`.
+   - `authorizeRoles(...roles)`: Enforces role permissions on protected routes (HTTP 401 for unauthenticated, HTTP 403 for unauthorized).
+4. **Current User Profile:** `GET /api/auth/me` returns current sanitized user identity.
+5. **Frontend State & Reusable Route Protection:**
+   - `AuthProvider`: Manages authenticated session in client-side `sessionStorage` (`waypoint_token` and `waypoint_user`).
+   - `ProtectedRoute`: Reusable route wrapper redirecting unauthenticated requests to `/login` and redirecting authenticated users with unauthorized roles to their designated portal.
+   - `apiClient`: Automatically attaches `Authorization: Bearer <token>` to outbound API requests.
+
+---
+
+## 18. Development Workflow
 
 - Follow the contribution guide in [CONTRIBUTING.md](file:///CONTRIBUTING.md).
 - Create branches off `develop`.
@@ -364,7 +397,7 @@ npm run db:seed
 
 ---
 
-## 18. Branch Strategy
+## 19. Branch Strategy
 
 - `main`: Production-ready releases.
 - `develop`: Ongoing integration.
@@ -374,7 +407,7 @@ npm run db:seed
 
 ---
 
-## 19. Testing
+## 20. Testing
 
 Execute all workspace test suites:
 
@@ -391,13 +424,14 @@ npm run lint
 
 ---
 
-## 20. Hackathon Deliverables
+## 21. Hackathon Deliverables
 
 - [x] Initial Monorepo Foundation & Workspace Scaffolding
 - [x] Shared Domain Models, Enums, Zod Schemas & Types (`@waypoint/shared`)
 - [x] Express REST API Foundation with Modular Architecture (`@waypoint/api`)
 - [x] Health Endpoint (`GET /api/health`)
 - [x] PostgreSQL Prisma Schema & Seed Architecture (strict env validation)
+- [x] Shared Role-Based Authentication & Authorization Foundation (JWT + bcrypt)
 - [x] Responsive React + Vite + Tailwind Web Application (`@waypoint/web`)
 - [x] Dexie.js Offline Architecture Setup
 - [x] Docker & Docker Compose Setup (CONFIGURED, NOT YET RUNTIME VERIFIED)
@@ -410,19 +444,19 @@ npm run lint
 
 ---
 
-## 21. Judge Walkthrough
+## 22. Judge Walkthrough
 
 To be finalized once the complete implementation is available.
 
 ---
 
-## 22. AI Tool Disclosure
+## 23. AI Tool Disclosure
 
 See [docs/AI_TOOL_DISCLOSURE.md](file:///docs/AI_TOOL_DISCLOSURE.md) for full compliance statement and audit log.
 
 ---
 
-## 23. Team Members
+## 24. Team Members
 
 **Team Name:** Team BJM
 
